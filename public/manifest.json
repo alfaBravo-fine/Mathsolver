@@ -1,0 +1,78 @@
+{
+  "id": "/",
+  "name": "MathSolver - Step-by-Step Problem Solver",
+  "short_name": "MathSolver",
+  "description": "Smart step-by-step math solver with formula calculator, OCR camera recognition, and offline history.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#708764",
+  "background_color": "#f7f6f0",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "utilities"],
+  "iarc_rating_id": "e84b3e5d-2e2e-4e2e-8e2e-2e2e2e2e2e2e",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Solve Problem",
+      "short_name": "Solve",
+      "description": "Write or type an equation to solve",
+      "url": "/?action=solve",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Math Formulas",
+      "short_name": "Formulas",
+      "description": "Browse and calculate math formulas",
+      "url": "/?action=formulas",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "MathSolver",
+  "description": "Smart step-by-step math solver with formula calculator, OCR camera recognition, and full offline history.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
