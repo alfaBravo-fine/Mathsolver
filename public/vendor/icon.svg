@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="120" fill="#708764"/>
-  <circle cx="256" cy="256" r="180" fill="#f7f6f0" opacity="0.15"/>
-  <text x="256" y="325" font-family="'Plus Jakarta Sans', -apple-system, sans-serif" font-size="240" font-weight="800" fill="#f7f6f0" text-anchor="middle">∑</text>
+  <rect width="512" height="512" rx="112" fill="#708764"/>
+  <circle cx="256" cy="256" r="175" fill="#f7f6f0" opacity="0.18"/>
+  <text x="256" y="335" font-family="Georgia, Cambria, 'Times New Roman', serif" font-size="260" font-weight="700" fill="#f7f6f0" text-anchor="middle">∑</text>
 </svg>
