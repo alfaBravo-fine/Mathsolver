@@ -56,6 +56,110 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    /* Strict formula card container bounds & anti-overflow containment */
+    .formula-card {
+      position: relative !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow: hidden !important;
+      box-sizing: border-box !important;
+      contain: paint !important;
+      background-clip: padding-box !important;
+    }
+
+    /* Dedicated Hard CSS Bounds on Formula Card Preview Container & Banners */
+    .formula-preview-container,
+    .formula-preview,
+    .latex-render-box:not(#detailFormulaLatex) {
+      height: 48px !important;
+      max-height: 48px !important;
+      min-height: 48px !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      white-space: nowrap !important;
+      -webkit-overflow-scrolling: touch !important;
+      cursor: grab !important;
+      position: relative !important;
+      border-radius: 8px !important;
+      background: rgba(255, 255, 255, 0.03) !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 0.95rem !important;
+      padding: 8px 12px !important;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+      touch-action: pan-x !important;
+    }
+
+    .formula-preview-container::-webkit-scrollbar,
+    .formula-preview::-webkit-scrollbar,
+    .latex-render-box:not(#detailFormulaLatex)::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
+    .latex-render-box:not(.typeset-done):not(:has(mjx-container)) {
+      font-size: 0 !important;
+      color: transparent !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      user-select: none !important;
+      pointer-events: none !important;
+    }
+
+    .latex-render-box.typeset-done,
+    .latex-render-box:has(mjx-container),
+    .latex-render-box mjx-container {
+      color: inherit !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      transition: opacity 0.15s ease-in;
+    }
+
+    /* MathJax Container styling inside formula card preview box */
+    .formula-preview-container mjx-container,
+    .formula-preview mjx-container,
+    .latex-render-box:not(#detailFormulaLatex) mjx-container {
+      background: transparent !important;
+      background-color: transparent !important;
+      color: inherit !important;
+      fill: currentColor !important;
+      max-height: 44px !important;
+      overflow-x: visible !important;
+      overflow-y: hidden !important;
+      box-sizing: border-box !important;
+      display: inline-block !important;
+      vertical-align: middle !important;
+      font-size: 0.95rem !important;
+      transform: none !important;
+      white-space: nowrap !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    /* Override MathJax background bounding rectangles to eliminate white blobs */
+    mjx-container svg rect,
+    .latex-render-box mjx-container svg rect,
+    .formula-preview-container mjx-container svg rect,
+    .formula-preview mjx-container svg rect {
+      fill: transparent !important;
+      background: transparent !important;
+      stroke-width: 0 !important;
+    }
+
+    .latex-render-box mjx-container svg g {
+      max-width: 100% !important;
+    }
+
+    .latex-render-box mjx-container svg g {
+      max-width: 100% !important;
+    }
+
     /* Universal touch-action manipulation to eliminate 300ms tap delay & UI button lag */
     button, [role="button"], .math-key-btn, .keypad-tab-btn, .formula-cat-btn, .method-pill, .interactive-card, input, select {
       touch-action: manipulation;
@@ -248,6 +352,23 @@
     .no-scrollbar {
       -ms-overflow-style: none;
       scrollbar-width: none;
+    }
+
+    /* Fast & Snappy "Rising from below" Entrance Animation for Formula Tab (0.18s) */
+    @keyframes slideUpRise {
+      0% {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      100% {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    #formulasModal:not(.hidden) .formula-modal-card {
+      animation: slideUpRise 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      will-change: transform, opacity;
     }
 
     /* PART 1: Fixed Stable Formulas Modal Layout & Non-collapsible Frame */
@@ -780,7 +901,7 @@
             </div>
           </div>
 
-          <button id="solveSubmitBtn" onclick="handleWriteSubmit()" class="w-full py-3.5 bg-sage-green text-white font-bold rounded-2xl shadow-lg hover:opacity-90 active:scale-[0.99] transition flex items-center justify-center gap-2 cursor-pointer">
+          <button type="button" id="solveSubmitBtn" onclick="handleWriteSubmit(event)" class="w-full py-3.5 bg-sage-green text-white font-bold rounded-2xl shadow-lg hover:opacity-90 active:scale-[0.99] transition flex items-center justify-center gap-2 cursor-pointer">
             <span>Solve Problem</span>
           </button>
         </div>
@@ -832,6 +953,36 @@
           </div>
 
           <!-- Formulas Items Container: Dedicated Universal Scrollable Container -->
+          <!-- Sleek Loading Skeleton to permanently eliminate raw code flash -->
+          <div id="formulaListSkeleton" class="space-y-2.5 pr-1 hidden">
+            <div class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700 animate-pulse">
+              <div class="flex justify-between items-start mb-2">
+                <div class="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                <div class="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+              </div>
+              <div class="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded-md mb-2"></div>
+              <div class="h-3 w-1/2 bg-gray-200 dark:bg-gray-700 rounded-md mb-3"></div>
+              <div class="h-10 w-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl"></div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700 animate-pulse">
+              <div class="flex justify-between items-start mb-2">
+                <div class="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                <div class="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+              </div>
+              <div class="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded-md mb-2"></div>
+              <div class="h-3 w-1/2 bg-gray-200 dark:bg-gray-700 rounded-md mb-3"></div>
+              <div class="h-10 w-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl"></div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700 animate-pulse">
+              <div class="flex justify-between items-start mb-2">
+                <div class="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                <div class="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+              </div>
+              <div class="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded-md mb-2"></div>
+              <div class="h-3 w-1/2 bg-gray-200 dark:bg-gray-700 rounded-md mb-3"></div>
+              <div class="h-10 w-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl"></div>
+            </div>
+          </div>
           <div id="formulasItemsContainer" class="formula-scroll-container space-y-2 pr-1">
             <!-- Driven dynamically by FormulaEngine.renderList() -->
           </div>
@@ -975,7 +1126,7 @@
     </div>
 
     <!-- 4. SOLUTION RESULT MODAL (UNIVERSAL 5-SECTION BREAKDOWN & PDF EXPORT) -->
-    <div id="solutionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div id="solutionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[440px] max-h-[92dvh] rounded-t-[32px] sm:rounded-[32px] p-5 sm:p-6 shadow-2xl flex flex-col overflow-y-auto">
         
         <!-- Header -->
@@ -1312,25 +1463,7 @@
             </select>
           </div>
 
-          <!-- Technical Info Badge -->
-          <div class="p-3.5 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-1.5">
-            <div class="font-bold text-gray-800 dark:text-gray-100 mb-1 flex items-center justify-between">
-              <span>Offline Architecture</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage-green/20 text-sage-green">Active</span>
-            </div>
-            <div class="flex justify-between text-[11px] text-gray-500 dark:text-gray-400">
-              <span>Math Engine:</span>
-              <span class="font-mono text-gray-800 dark:text-gray-200">Math.js v12 + MathJax 3</span>
-            </div>
-            <div class="flex justify-between text-[11px] text-gray-500 dark:text-gray-400">
-              <span>PDF Generator:</span>
-              <span class="font-mono text-gray-800 dark:text-gray-200">html2pdf.js / jsPDF</span>
-            </div>
-            <div class="flex justify-between text-[11px] text-gray-500 dark:text-gray-400">
-              <span>OCR Scanner:</span>
-              <span class="font-mono text-gray-800 dark:text-gray-200">Local thresholding & heuristics</span>
-            </div>
-          </div>
+
 
           <!-- Storage Controls -->
           <div class="pt-1 space-y-2">
@@ -1486,27 +1619,18 @@ let typesetQueue = new Set();
 let typesetScheduled = false;
 
 function typeset(element) {
-  if (!window.MathJax || !window.MathJax.typesetPromise) return;
-  if (element) {
-    typesetQueue.add(element);
-  }
-  if (!typesetScheduled) {
-    typesetScheduled = true;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(async () => {
-        const elements = Array.from(typesetQueue).filter(el => el && document.body.contains(el));
-        typesetQueue.clear();
-        typesetScheduled = false;
-        if (elements.length > 0) {
-          try {
-            await window.MathJax.typesetPromise(elements);
-          } catch (e) {
-            console.warn('MathJax typeset error:', e);
-          }
-        }
-      });
+  if (!window.MathJax || !window.MathJax.typesetPromise) return Promise.resolve();
+  const elements = element ? (Array.isArray(element) ? element : [element]) : [];
+  return window.MathJax.typesetPromise(elements).then(() => {
+    elements.forEach(el => {
+      if (el && el.classList && el.classList.contains('latex-render-box')) el.classList.add('typeset-done');
+      if (el && el.querySelectorAll) {
+        el.querySelectorAll('.latex-render-box').forEach(box => box.classList.add('typeset-done'));
+      }
     });
-  }
+  }).catch(e => {
+    console.warn('MathJax typeset error:', e);
+  });
 }
 
 /**
@@ -5475,6 +5599,8 @@ const Solver = {
     return vars;
   },
 
+  _solveCache: new Map(),
+
   async solve(rawInput) {
     if (!rawInput || !rawInput.trim()) {
       return {
@@ -5485,6 +5611,24 @@ const Solver = {
       };
     }
 
+    const key = rawInput.trim();
+    if (!this._solveCache) this._solveCache = new Map();
+    if (this._solveCache.has(key)) {
+      return JSON.parse(JSON.stringify(this._solveCache.get(key)));
+    }
+
+    const result = await this._solveInternal(rawInput);
+    if (result && !result.error) {
+      if (this._solveCache.size > 200) {
+        const oldest = this._solveCache.keys().next().value;
+        if (oldest !== undefined) this._solveCache.delete(oldest);
+      }
+      this._solveCache.set(key, JSON.parse(JSON.stringify(result)));
+    }
+    return result;
+  },
+
+  async _solveInternal(rawInput) {
     let clean = rawInput.trim();
 
     // Normalize OCR unicode superscripts (⁰¹²³⁴⁵⁶⁷⁸⁹) to carets
@@ -5505,7 +5649,13 @@ const Solver = {
       .replace(/π/g, 'pi')
       .replace(/\bPi\b/g, 'pi')
       .replace(/θ/g, 'theta')
-      .replace(/Δ/g, 'Delta');
+      .replace(/Δ/g, 'Delta')
+      .replace(/√\s*\(([^)]+)\)/g, 'sqrt($1)')
+      .replace(/√([0-9a-zA-Z]+)/g, 'sqrt($1)')
+      .replace(/√/g, 'sqrt')
+      .replace(/∛\s*\(([^)]+)\)/g, 'cbrt($1)')
+      .replace(/∛([0-9a-zA-Z]+)/g, 'cbrt($1)')
+      .replace(/∛/g, 'cbrt');
 
     // 1. DERIVATIVE DETECTION: d/dx(...) or diff(...) or derivative(...)
     const derivMatch = clean.match(/^(?:d\/d([a-zA-Z])|diff|derivative)\s*\(?([^)]+?)\)?$/i);
@@ -6544,12 +6694,22 @@ const Solver = {
         note: "Standard algebraic hierarchy"
       });
 
-      const scope = {
-        pi: 3.141592653589793,
-        e: 2.718281828459045
-      };
-      const evaluated = math.evaluate(clean, scope);
-      if (evaluated === undefined || evaluated === null || isNaN(evaluated)) {
+      let evaluated;
+      try {
+        evaluated = math.evaluate(clean);
+      } catch (evalErr1) {
+        try {
+          evaluated = math.evaluate(clean, { pi: Math.PI, e: Math.E });
+        } catch (evalErr2) {
+          const safeJs = clean.replace(/\^/g, '**');
+          if (/^[\d\s\+\-\*/\(\)\.\%\e\E]+$/.test(safeJs)) {
+            evaluated = Function(`'use strict'; return (${safeJs})`)();
+          } else {
+            throw evalErr1;
+          }
+        }
+      }
+      if (evaluated === undefined || evaluated === null || (typeof evaluated === 'number' && isNaN(evaluated))) {
         throw new Error("Unable to evaluate expression");
       }
 
@@ -9255,6 +9415,11 @@ const FormulaEngine = {
   searchQuery: '',
   currentGroup: null,     // Currently selected parent formula group
   currentFormula: null,   // Currently active sub-formula
+  _categoryCache: {},     // Caches rendered HTML by category (with typeset MathJax SVGs)
+  _groupCache: {},        // Caches sub-menu overview & list HTML by groupId
+  _calcCache: new Map(),  // Memoized cache for formula evaluations
+  _showAllFormulas: false,// Controls full list expansion in 'All' category
+  _searchDebounceTimer: null,
 
   FORMULAS: [
     ...CORE_THEOREMS_26,
@@ -9269,15 +9434,9 @@ const FormulaEngine = {
     this.resetToRoot();
   },
 
-  // Reset modal navigation back to root catalog (as required by specification)
-  resetToRoot() {
+  silentResetNavigation() {
     this.currentGroup = null;
     this.currentFormula = null;
-    this.activeCategory = 'All';
-    this.searchQuery = '';
-    const searchInput = document.getElementById('formulaSearchInput');
-    if (searchInput) searchInput.value = '';
-
     const detail = document.getElementById('formulaDetailView');
     const subMenu = document.getElementById('formulaSubMenuView');
     const list = document.getElementById('formulasListView');
@@ -9287,6 +9446,16 @@ const FormulaEngine = {
     if (subMenu) { subMenu.classList.add('hidden'); subMenu.classList.remove('flex'); }
     if (resBox) resBox.classList.add('hidden');
     if (list) { list.classList.remove('hidden'); list.classList.add('flex'); }
+  },
+
+  // Reset modal navigation back to root catalog (as required by specification)
+  resetToRoot() {
+    this.silentResetNavigation();
+    this.activeCategory = 'All';
+    this.searchQuery = '';
+    this._showAllFormulas = false;
+    const searchInput = document.getElementById('formulaSearchInput');
+    if (searchInput) searchInput.value = '';
 
     const title = document.getElementById('formulasModalTitle');
     const sub = document.getElementById('formulasModalSubtitle');
@@ -9294,11 +9463,11 @@ const FormulaEngine = {
     if (sub) sub.innerText = "Select a formula to calculate or apply";
 
     this.filterCategory('All');
-    this.renderList();
   },
 
   filterCategory(cat) {
     this.activeCategory = cat;
+    this._showAllFormulas = false;
     const btns = document.querySelectorAll('.formula-cat-btn');
     btns.forEach(b => {
       if (b.getAttribute('data-category') === cat) {
@@ -9311,57 +9480,190 @@ const FormulaEngine = {
   },
 
   handleSearch(query) {
-    this.searchQuery = (query || '').toLowerCase().trim();
+    if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+    this._searchDebounceTimer = setTimeout(() => {
+      this.searchQuery = (query || '').toLowerCase().trim();
+      this.renderList();
+    }, 120);
+  },
+
+  loadAllFormulas() {
+    this._showAllFormulas = true;
     this.renderList();
   },
 
-  renderList() {
+  async renderList() {
     const container = document.getElementById('formulasItemsContainer');
+    const skeleton = document.getElementById('formulaListSkeleton');
     if (!container) return;
+
+    // Check if cached HTML for this category already exists (and user is not searching)
+    const cacheKey = (!this.searchQuery && !this._showAllFormulas) ? this.activeCategory : null;
+    if (cacheKey && this._categoryCache[cacheKey]) {
+      if (skeleton) skeleton.classList.add('hidden');
+      container.innerHTML = this._categoryCache[cacheKey];
+      container.classList.remove('hidden');
+      container.style.opacity = '1';
+      return;
+    }
+
+    // Direct global sub-formula search matching across groups
+    if (this.searchQuery) {
+      const matchedSubs = [];
+      const query = this.searchQuery;
+      this.FORMULAS.forEach(group => {
+        if (this.activeCategory !== 'All' && group.category !== this.activeCategory && group.subCategory !== this.activeCategory) {
+          return;
+        }
+        (group.subFormulas || []).forEach(sub => {
+          const match = sub.title.toLowerCase().includes(query) ||
+                        sub.desc.toLowerCase().includes(query) ||
+                        (sub.latex && sub.latex.toLowerCase().includes(query)) ||
+                        (sub.template && sub.template.toLowerCase().includes(query)) ||
+                        group.title.toLowerCase().includes(query) ||
+                        group.category.toLowerCase().includes(query);
+          if (match) {
+            matchedSubs.push({ group, sub });
+          }
+        });
+      });
+
+      if (matchedSubs.length > 0) {
+        if (skeleton) skeleton.classList.remove('hidden');
+        container.classList.add('hidden');
+        container.style.opacity = '0';
+
+        const displaySubs = matchedSubs.slice(0, 30);
+        let html = displaySubs.map(({ group, sub }) => `
+          <div onclick="FormulaEngine.openDetail('${sub.id}')" class="formula-card relative w-full overflow-hidden p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/80 hover:bg-sage-green/10 dark:hover:bg-sage-green/20 border border-gray-100 dark:border-gray-700 cursor-pointer transition group">
+            <div class="flex justify-between items-start mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sage-green bg-sage-green/10 px-2 py-0.5 rounded-full">${group.category} • ${group.title}</span>
+              <span class="text-[10px] font-bold text-sage-green bg-sage-green/10 px-2 py-0.5 rounded-full">Calculator</span>
+            </div>
+            <h3 class="text-xs font-bold text-gray-800 dark:text-gray-100 group-hover:text-sage-green transition mb-0.5 truncate">${sub.title}</h3>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-snug line-clamp-2 mb-2 font-sans">${sub.desc}</p>
+            <div class="formula-preview-container latex-render-box relative w-full overflow-hidden text-center font-serif text-xs text-gray-800 dark:text-gray-200">
+              $$${sub.latex}$$
+            </div>
+          </div>
+        `).join('');
+
+        if (matchedSubs.length > 30) {
+          html += `<div class="p-3 text-center text-xs text-gray-400 font-medium">Showing top 30 matching formulas (${matchedSubs.length - 30} more)</div>`;
+        }
+
+        container.innerHTML = html;
+        try { await typeset(container); } catch (_) {}
+        this.initDragToScroll();
+        if (skeleton) skeleton.classList.add('hidden');
+        container.classList.remove('hidden');
+        container.style.opacity = '1';
+        return;
+      }
+    }
 
     let items = this.FORMULAS;
     if (this.activeCategory !== 'All') {
       items = items.filter(f => f.category === this.activeCategory || f.subCategory === this.activeCategory);
     }
-    if (this.searchQuery) {
-      items = items.filter(f => {
-        const inParent = f.title.toLowerCase().includes(this.searchQuery) ||
-                         f.subtitle.toLowerCase().includes(this.searchQuery) ||
-                         f.category.toLowerCase().includes(this.searchQuery);
-        const inSubs = (f.subFormulas || []).some(s =>
-          s.title.toLowerCase().includes(this.searchQuery) ||
-          s.desc.toLowerCase().includes(this.searchQuery)
-        );
-        return inParent || inSubs;
-      });
-    }
 
     if (items.length === 0) {
+      if (skeleton) skeleton.classList.add('hidden');
+      container.classList.remove('hidden');
+      container.style.opacity = '1';
       container.innerHTML = `<div class="p-6 text-center text-xs text-gray-400 italic">No formulas found matching your filter.</div>`;
       return;
     }
 
-    container.innerHTML = items.map(f => {
+    // Show skeleton, hide container until MathJax completes typesetting to prevent raw string flash
+    if (skeleton) skeleton.classList.remove('hidden');
+    container.classList.add('hidden');
+    container.style.opacity = '0';
+
+    const isFullAll = this.activeCategory === 'All' && !this.searchQuery;
+    const hasMore = isFullAll && !this._showAllFormulas && items.length > 24;
+    const displayItems = hasMore ? items.slice(0, 24) : items;
+
+    let html = displayItems.map(f => {
       const subCount = f.subFormulas ? f.subFormulas.length : 0;
       return `
-        <div onclick="FormulaEngine.openGroup('${f.id}')" class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/80 hover:bg-sage-green/10 dark:hover:bg-sage-green/20 border border-gray-100 dark:border-gray-700 cursor-pointer transition group">
+        <div onclick="FormulaEngine.openGroup('${f.id}')" class="formula-card relative w-full overflow-hidden p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/80 hover:bg-sage-green/10 dark:hover:bg-sage-green/20 border border-gray-100 dark:border-gray-700 cursor-pointer transition group">
           <div class="flex justify-between items-start mb-1">
             <span class="text-[10px] font-bold uppercase tracking-wider text-sage-green bg-sage-green/10 px-2 py-0.5 rounded-full">${f.category}</span>
             <span class="text-[10px] font-bold text-gray-400 bg-white dark:bg-gray-700 px-2 py-0.5 rounded-full border border-gray-100 dark:border-gray-600">${subCount} Rules</span>
           </div>
-          <h3 class="text-xs font-bold text-gray-800 dark:text-gray-100 group-hover:text-sage-green transition mb-0.5">${f.title}</h3>
+          <h3 class="text-xs font-bold text-gray-800 dark:text-gray-100 group-hover:text-sage-green transition mb-0.5 truncate">${f.title}</h3>
           <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-snug line-clamp-2 mb-2 font-sans">${f.subtitle}</p>
-          <div class="p-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700/80 text-center font-serif text-xs text-gray-800 dark:text-gray-200 overflow-x-auto no-scrollbar py-1">
+          <div class="formula-preview-container latex-render-box relative w-full text-center font-serif text-xs text-gray-800 dark:text-gray-200">
             $$${f.latex}$$
           </div>
         </div>
       `;
     }).join('');
 
-    typeset(container);
+    if (hasMore) {
+      html += `
+        <div class="text-center py-3 flex justify-center">
+          <button type="button" onclick="FormulaEngine.loadAllFormulas()" class="px-4 py-2 bg-sage-green text-white text-xs font-bold rounded-xl shadow-xs hover:opacity-90 active:scale-[0.99] transition cursor-pointer flex items-center gap-1.5">
+            <i class="fa-solid fa-list-check text-[11px]"></i>
+            <span>Load All Formulas (${items.length - 24} more)</span>
+          </button>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+
+    try {
+      await typeset(container);
+    } catch (_) {}
+    this.initDragToScroll();
+
+    // Cache the fully typeset HTML for this category
+    if (cacheKey) {
+      this._categoryCache[cacheKey] = container.innerHTML;
+    }
+
+    // Reveal container smoothly
+    if (skeleton) skeleton.classList.add('hidden');
+    container.classList.remove('hidden');
+    container.style.opacity = '1';
   },
 
-  openGroup(groupId) {
+  initDragToScroll() {
+    const els = document.querySelectorAll('.formula-preview-container, .formula-preview');
+    els.forEach(el => {
+      if (el.dataset.dragInited) return;
+      el.dataset.dragInited = 'true';
+      let isDown = false;
+      let startX = 0;
+      let scrollLeft = 0;
+
+      el.addEventListener('mousedown', (e) => {
+        isDown = true;
+        el.style.cursor = 'grabbing';
+        startX = e.pageX - el.offsetLeft;
+        scrollLeft = el.scrollLeft;
+      });
+      el.addEventListener('mouseleave', () => {
+        isDown = false;
+        el.style.cursor = 'grab';
+      });
+      el.addEventListener('mouseup', () => {
+        isDown = false;
+        el.style.cursor = 'grab';
+      });
+      el.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - el.offsetLeft;
+        const walk = (x - startX) * 1.8;
+        el.scrollLeft = scrollLeft - walk;
+      });
+    });
+  },
+
+  async openGroup(groupId) {
     const group = this.FORMULAS.find(f => f.id === groupId);
     if (!group) return;
     this.currentGroup = group;
@@ -9374,24 +9676,37 @@ const FormulaEngine = {
     document.getElementById('subMenuTitle').innerText = group.title;
     document.getElementById('subMenuSubtitle').innerText = group.subtitle;
     document.getElementById('subMenuCategoryBadge').innerText = group.category;
-    document.getElementById('subMenuLatex').innerHTML = `$$${group.latex}$$`;
 
+    const overviewCard = document.getElementById('subMenuOverviewCard');
     const list = document.getElementById('subMenuListContainer');
+
+    if (this._groupCache[groupId]) {
+      document.getElementById('subMenuLatex').innerHTML = this._groupCache[groupId].overview;
+      list.innerHTML = this._groupCache[groupId].list;
+      this.initDragToScroll();
+      return;
+    }
+
+    document.getElementById('subMenuLatex').innerHTML = `<div class="formula-preview-container latex-render-box relative w-full">$$${group.latex}$$</div>`;
     list.innerHTML = (group.subFormulas || []).map(sub => `
-      <div onclick="FormulaEngine.openDetail('${sub.id}', true)" class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-sage-green/10 dark:hover:bg-sage-green/20 border border-gray-100 dark:border-gray-700 cursor-pointer transition group">
+      <div onclick="FormulaEngine.openDetail('${sub.id}', true)" class="formula-card relative w-full overflow-hidden p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-sage-green/10 dark:hover:bg-sage-green/20 border border-gray-100 dark:border-gray-700 cursor-pointer transition group">
         <div class="flex items-center justify-between mb-1">
-          <h4 class="text-xs font-bold text-gray-800 dark:text-gray-100 group-hover:text-sage-green transition">${sub.title}</h4>
+          <h4 class="text-xs font-bold text-gray-800 dark:text-gray-100 group-hover:text-sage-green transition truncate">${sub.title}</h4>
           <i class="fa-solid fa-chevron-right text-[10px] text-gray-400 group-hover:text-sage-green transition"></i>
         </div>
         <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-snug mb-2 font-sans">${sub.desc}</p>
-        <div class="p-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700/80 text-center font-serif text-xs text-gray-800 dark:text-gray-200 overflow-x-auto no-scrollbar py-0.5">
+        <div class="formula-preview-container latex-render-box relative w-full text-center font-serif text-xs text-gray-800 dark:text-gray-200">
           $$${sub.latex}$$
         </div>
       </div>
     `).join('');
 
-    typeset(document.getElementById('subMenuOverviewCard'));
-    typeset(list);
+    await Promise.all([typeset(overviewCard), typeset(list)]);
+    this.initDragToScroll();
+    this._groupCache[groupId] = {
+      overview: document.getElementById('subMenuLatex').innerHTML,
+      list: list.innerHTML
+    };
   },
 
   backFromSubMenu() {
@@ -9435,7 +9750,7 @@ const FormulaEngine = {
 
     document.getElementById('detailFormulaTitle').innerText = sub.title;
     document.getElementById('detailFormulaDesc').innerText = sub.desc;
-    document.getElementById('detailFormulaLatex').innerHTML = `$$${sub.latex}$$`;
+    document.getElementById('detailFormulaLatex').innerHTML = `<div class="latex-render-box">$$${sub.latex}$$</div>`;
 
     const inputsContainer = document.getElementById('detailInputsContainer');
     inputsContainer.innerHTML = (sub.vars || []).map(v => `
@@ -9489,9 +9804,24 @@ const FormulaEngine = {
       }
     }
 
-    const res = this.currentFormula.compute(values);
-    if (res.error) {
-      showToast(res.error, "error");
+    if (!this._calcCache) this._calcCache = new Map();
+    const cacheKey = `${this.currentFormula.id}:${JSON.stringify(values)}`;
+    let res;
+    if (this._calcCache.has(cacheKey)) {
+      res = JSON.parse(JSON.stringify(this._calcCache.get(cacheKey)));
+    } else {
+      res = this.currentFormula.compute(values);
+      if (res && !res.error) {
+        if (this._calcCache.size > 200) {
+          const oldest = this._calcCache.keys().next().value;
+          if (oldest !== undefined) this._calcCache.delete(oldest);
+        }
+        this._calcCache.set(cacheKey, JSON.parse(JSON.stringify(res)));
+      }
+    }
+
+    if (!res || res.error) {
+      showToast(res ? res.error : "Calculation error", "error");
       return;
     }
 
@@ -9508,7 +9838,7 @@ const FormulaEngine = {
 
     if (res.intermediateSteps && res.intermediateSteps.length > 0) {
       stepsContainer.innerHTML = res.intermediateSteps.map(s => `
-        <div class="bg-white dark:bg-gray-900 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xs">
+        <div class="bg-white dark:bg-gray-900 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xs overflow-hidden">
           <div class="font-bold text-gray-800 dark:text-gray-200 text-xs">${s.title}</div>
           <div class="font-serif my-1 text-sage-green text-xs overflow-x-auto no-scrollbar py-0.5">$$${s.expression}$$</div>
           <div class="text-[11px] text-gray-500 dark:text-gray-400 italic font-sans">${s.note}</div>
@@ -10568,11 +10898,15 @@ const UI = {
   activeMethodIndex: 0,
 
   generateMultiMethods(item) {
+    if (!item) return null;
     const raw = String(item.query || item.title || '').trim().toLowerCase();
     const ans = String(item.answer || item.finalResult || '');
     
     // Check for quadratic form ax^2 + bx + c = 0
     const quadMatch = raw.match(/([+-]?\s*\d*\.?\d*)\s*x(?:\^2|²)\s*([+-]\s*\d*\.?\d*)\s*x\s*([+-]\s*\d+\.?\d*)?\s*=\s*0?/i);
+    const hasQuadKeywords = Boolean(quadMatch || /(quadratic|roots?|zeros?|parabola|discriminant)/i.test(raw) || /(?:x\^2|x²)/i.test(raw));
+    const hasFraction = raw.includes('/') || Boolean(item.formulaStatement && item.formulaStatement.title && item.formulaStatement.title.toLowerCase().includes('fraction'));
+
     // Check for simultaneous linear system
     if (item.systemMethods || (item.formulaStatement && item.formulaStatement.title && item.formulaStatement.title.includes('Simultaneous'))) {
       const cramerSteps = item.systemMethods ? item.systemMethods.cramer : (item.intermediateSteps || item.steps || []);
@@ -11771,6 +12105,129 @@ const UI = {
  * HARDWARE BACK BUTTON & NAVIGATION CONTROLLER (@capacitor/app)
  * Gracefully unwinds active sub-views, formula details, and modals before exiting
  */
+/**
+ * SMOOTH HORIZONTAL SWIPE NAVIGATION
+ * Swipes horizontally to toggle between Calculator and Formula tabs.
+ * Automatically disabled inside Mathpad, active inputs, and scrollable tab bars.
+ */
+const SwipeNavigator = {
+  touchStartX: 0,
+  touchStartY: 0,
+  touchStartTime: 0,
+  isSwiping: false,
+
+  init() {
+    const mainEl = document.querySelector('main') || document.body;
+
+    mainEl.addEventListener('touchstart', (e) => {
+      if (this.shouldIgnoreTouch(e.target)) return;
+
+      if (e.touches && e.touches.length === 1) {
+        this.touchStartX = e.touches[0].clientX;
+        this.touchStartY = e.touches[0].clientY;
+        this.touchStartTime = Date.now();
+        this.isSwiping = true;
+      }
+    }, { passive: true });
+
+    mainEl.addEventListener('touchend', (e) => {
+      if (!this.isSwiping) return;
+      this.isSwiping = false;
+
+      if (!e.changedTouches || e.changedTouches.length !== 1) return;
+
+      const deltaX = e.changedTouches[0].clientX - this.touchStartX;
+      const deltaY = e.changedTouches[0].clientY - this.touchStartY;
+      const deltaTime = Date.now() - this.touchStartTime;
+
+      // Minimum swipe distance: 48px, maximum vertical drift: 40px, maximum duration: 500ms
+      if (Math.abs(deltaX) > 48 && Math.abs(deltaY) < 40 && deltaTime < 500) {
+        if (deltaX < 0) {
+          // Swiped Left -> navigate to Formulas
+          this.onSwipeLeft();
+        } else {
+          // Swiped Right -> navigate to Calculator
+          this.onSwipeRight();
+        }
+      }
+    }, { passive: true });
+  },
+
+  shouldIgnoreTouch(target) {
+    if (!target) return true;
+
+    // Disabled on text inputs, textareas, and select elements
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return true;
+
+    // Disabled inside Mathpad, keys, and slot inputs
+    if (target.closest('.math-key-btn, .mathpad-key, .pm-slot-input, #mathInput, #keypadTabBar, #tab-basic, #tab-vars, #tab-func, #tab-trig, #tab-calc, #photomathTemplateCard')) {
+      return true;
+    }
+
+    // Disabled inside canvas, and horizontally scrollable category/tab bars
+    if (target.closest('canvas, .category-bar, .formula-category-bar, .variation-pill-bar, #detailSubTabsBar, #solutionMethodsBar, #homeRecentsContainer')) {
+      return true;
+    }
+
+    // Disabled inside modal interactive controls
+    if (target.closest('#detailInputsContainer, #solutionCanvasGraph, #solutionModal')) {
+      return true;
+    }
+
+    return false;
+  },
+
+  onSwipeLeft() {
+    const writeModal = document.getElementById('writeModal');
+    const formulasModal = document.getElementById('formulasModal');
+
+    if (writeModal && !writeModal.classList.contains('hidden')) {
+      closeModal('writeModal');
+      openModal('formulasModal');
+      showToast('Switched to Formulas', 'info');
+      return;
+    }
+
+    if (formulasModal && formulasModal.classList.contains('hidden')) {
+      const solutionModal = document.getElementById('solutionModal');
+      if (solutionModal && !solutionModal.classList.contains('hidden')) return;
+      openModal('formulasModal');
+      showToast('Switched to Formulas', 'info');
+    }
+  },
+
+  onSwipeRight() {
+    const formulasModal = document.getElementById('formulasModal');
+    const writeModal = document.getElementById('writeModal');
+
+    if (formulasModal && !formulasModal.classList.contains('hidden')) {
+      const detailView = document.getElementById('formulaDetailView');
+      const subMenuView = document.getElementById('formulaSubMenuView');
+
+      if (detailView && !detailView.classList.contains('hidden')) {
+        FormulaEngine.backFromDetail();
+        return;
+      }
+      if (subMenuView && !subMenuView.classList.contains('hidden')) {
+        FormulaEngine.backFromSubMenu();
+        return;
+      }
+
+      closeModal('formulasModal');
+      openModal('writeModal');
+      showToast('Switched to Calculator', 'info');
+      return;
+    }
+
+    if (writeModal && writeModal.classList.contains('hidden')) {
+      const solutionModal = document.getElementById('solutionModal');
+      if (solutionModal && !solutionModal.classList.contains('hidden')) return;
+      openModal('writeModal');
+      showToast('Switched to Calculator', 'info');
+    }
+  }
+};
+
 const HardwareBackHandler = {
   init() {
     // 1. Android Capacitor Hardware Back Button
@@ -11877,7 +12334,13 @@ function closeModal(id) {
   if (id === 'cameraModal') {
     Ocr.stopCamera();
   } else if (id === 'formulasModal') {
-    FormulaEngine.resetToRoot();
+    FormulaEngine.silentResetNavigation();
+  } else if (id === 'solutionModal') {
+    if (window._openedFromWriteModal) {
+      window._openedFromWriteModal = false;
+      const writeModal = document.getElementById('writeModal');
+      if (writeModal) writeModal.classList.remove('hidden');
+    }
   }
 }
 
@@ -11948,33 +12411,80 @@ function initLongPressMenus() {
     if (btn._lpAttached) return;
     btn._lpAttached = true;
     let timer = null;
-    let didLongPress = false;
+    let isLongPressing = false;
+    let activeSelectedVariant = null;
+
     const text = (btn.innerText || '').trim();
     const variants = symbolVariants[text] || symbolVariants[text.replace(/\s+/g, '')];
     if (!variants) return;
 
-    const startLongPress = (e) => {
-      didLongPress = false;
+    const handlePointerDown = (e) => {
+      isLongPressing = false;
+      activeSelectedVariant = null;
+      if (timer) clearTimeout(timer);
+
       timer = setTimeout(() => {
-        didLongPress = true;
+        isLongPressing = true;
         showLongPressSubMenu(btn, variants);
-      }, 380);
+        if (navigator.vibrate) {
+          try { navigator.vibrate(15); } catch (_) {}
+        }
+      }, 300);
     };
 
-    const cancelLongPress = (e) => {
+    const handlePointerMove = (e) => {
+      if (!isLongPressing) return;
+      if (e.cancelable) e.preventDefault();
+      const touch = e.touches ? e.touches[0] : e;
+      const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const subBtn = elem ? elem.closest('.lp-variant-btn') : null;
+
+      const popup = document.getElementById('longPressPopup');
+      if (!popup) return;
+
+      const allSubBtns = popup.querySelectorAll('.lp-variant-btn');
+      allSubBtns.forEach(b => {
+        if (b === subBtn) {
+          b.classList.add('bg-sage-green', 'text-white', 'scale-105', 'shadow-md');
+          b.classList.remove('bg-gray-100', 'dark:bg-gray-700');
+          activeSelectedVariant = b.getAttribute('data-variant');
+        } else {
+          b.classList.remove('bg-sage-green', 'text-white', 'scale-105', 'shadow-md');
+          b.classList.add('bg-gray-100', 'dark:bg-gray-700');
+        }
+      });
+    };
+
+    const handlePointerUp = (e) => {
       if (timer) clearTimeout(timer);
-      if (didLongPress && e.type === 'click') {
+
+      if (isLongPressing) {
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
-        e.preventDefault();
+
+        if (activeSelectedVariant) {
+          appendMath(activeSelectedVariant);
+          if (navigator.vibrate) {
+            try { navigator.vibrate(10); } catch (_) {}
+          }
+        }
+        hideLongPressSubMenu();
+        isLongPressing = false;
+        activeSelectedVariant = null;
       }
     };
 
-    btn.addEventListener('touchstart', startLongPress, { passive: true });
-    btn.addEventListener('touchend', cancelLongPress);
-    btn.addEventListener('touchmove', cancelLongPress);
-    btn.addEventListener('mousedown', startLongPress);
-    btn.addEventListener('mouseup', cancelLongPress);
-    btn.addEventListener('mouseleave', cancelLongPress);
+    btn.addEventListener('touchstart', handlePointerDown, { passive: true });
+    btn.addEventListener('touchmove', handlePointerMove, { passive: false });
+    btn.addEventListener('touchend', handlePointerUp);
+    btn.addEventListener('touchcancel', handlePointerUp);
+
+    btn.addEventListener('mousedown', handlePointerDown);
+    btn.addEventListener('mousemove', handlePointerMove);
+    btn.addEventListener('mouseup', handlePointerUp);
+    btn.addEventListener('mouseleave', () => {
+      if (!isLongPressing && timer) clearTimeout(timer);
+    });
   });
 }
 
@@ -11983,26 +12493,27 @@ function showLongPressSubMenu(btn, variants) {
   if (!menu) {
     menu = document.createElement('div');
     menu.id = 'longPressPopup';
-    menu.className = 'fixed z-50 bg-white dark:bg-gray-800 border-2 border-sage-green shadow-2xl rounded-2xl p-2 flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md';
+    menu.className = 'fixed z-50 bg-white dark:bg-gray-800 border-2 border-sage-green shadow-2xl rounded-2xl p-2 flex items-center gap-1.5 backdrop-blur-md transition-all duration-100 select-none';
     document.body.appendChild(menu);
   }
 
   const rect = btn.getBoundingClientRect();
-  const left = Math.max(10, Math.min(window.innerWidth - 200, rect.left + rect.width / 2 - 90));
-  const top = Math.max(10, rect.top - 54);
+  const menuWidth = Math.min(window.innerWidth - 20, variants.length * 44 + 20);
+  const left = Math.max(10, Math.min(window.innerWidth - menuWidth - 10, rect.left + rect.width / 2 - menuWidth / 2));
+  const top = Math.max(10, rect.top - 58);
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
   menu.classList.remove('hidden');
 
   menu.innerHTML = variants.map(v => `
-    <button type="button" onclick="appendMath('${v}'); document.getElementById('longPressPopup').classList.add('hidden');" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-sage-green hover:text-white rounded-xl text-sm font-mono font-bold transition cursor-pointer shadow-xs active:scale-95">
+    <button type="button" data-variant="${v}" onclick="appendMath('${v}'); hideLongPressSubMenu();" class="lp-variant-btn px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-sage-green hover:text-white rounded-xl text-sm font-mono font-bold transition cursor-pointer shadow-xs active:scale-95 select-none">
       ${v}
     </button>
   `).join('');
 
   const closeMenu = (e) => {
     if (!menu.contains(e.target) && e.target !== btn) {
-      menu.classList.add('hidden');
+      hideLongPressSubMenu();
       document.removeEventListener('click', closeMenu);
       document.removeEventListener('touchstart', closeMenu);
     }
@@ -12011,6 +12522,11 @@ function showLongPressSubMenu(btn, variants) {
     document.addEventListener('click', closeMenu);
     document.addEventListener('touchstart', closeMenu, { passive: true });
   }, 50);
+}
+
+function hideLongPressSubMenu() {
+  const menu = document.getElementById('longPressPopup');
+  if (menu) menu.classList.add('hidden');
 }
 
 function clearMathInput() {
@@ -12064,38 +12580,54 @@ function switchKeypadTab(tabId) {
   });
 }
 
-async function handleWriteSubmit() {
-  const expr = document.getElementById('mathInput').value;
+async function handleWriteSubmit(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
+  const mathInput = document.getElementById('mathInput');
+  const expr = mathInput ? mathInput.value : '';
   const errorBanner = document.getElementById('inputErrorBanner');
   const errorMsg = document.getElementById('inputErrorMessage');
   const solveBtn = document.getElementById('solveSubmitBtn');
 
   if (!expr || !expr.trim()) {
-    errorMsg.innerText = "Please enter an expression to solve.";
-    errorBanner.classList.remove('hidden');
-    return;
+    if (errorMsg) errorMsg.innerText = "Please enter an expression to solve.";
+    if (errorBanner) errorBanner.classList.remove('hidden');
+    return false;
   }
 
-  solveBtn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Solving...</span>`;
-  solveBtn.disabled = true;
+  if (errorBanner) errorBanner.classList.add('hidden');
+  if (solveBtn) {
+    solveBtn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Solving...</span>`;
+    solveBtn.disabled = true;
+  }
 
   try {
     const result = await Solver.solve(expr);
     if (result.error) {
-      errorMsg.innerText = result.answer + (result.steps && result.steps[0] ? ": " + result.steps[0].note : "");
-      errorBanner.classList.remove('hidden');
-      return;
+      const msg = result.answer + (result.steps && result.steps[0] && result.steps[0].note ? ": " + result.steps[0].note : "");
+      if (errorMsg) errorMsg.innerText = msg || "Could not solve expression.";
+      if (errorBanner) errorBanner.classList.remove('hidden');
+      return false;
     }
 
     Store.saveItem(result);
-    closeModal('writeModal');
+    // Flag originating view so closing solution returns directly to typing bar
+    window._openedFromWriteModal = true;
     UI.displaySolution(result);
+    // Do NOT clear mathInput or redirect to main menu
+    return false;
   } catch (err) {
-    errorMsg.innerText = "Solver error: " + err.message;
-    errorBanner.classList.remove('hidden');
+    console.error("Solver error:", err);
+    if (errorMsg) errorMsg.innerText = "Solver error: " + (err.message || err);
+    if (errorBanner) errorBanner.classList.remove('hidden');
+    return false;
   } finally {
-    solveBtn.innerHTML = `<span>Solve Problem</span>`;
-    solveBtn.disabled = false;
+    if (solveBtn) {
+      solveBtn.innerHTML = `<span>Solve Problem</span>`;
+      solveBtn.disabled = false;
+    }
   }
 }
 
@@ -12124,6 +12656,7 @@ function initHorizontalScrollWheel() {
 window.addEventListener('DOMContentLoaded', () => {
   ThemeManager.init();
   HardwareBackHandler.init();
+  SwipeNavigator.init();
   Store.renderHomeChips();
   Store.updateProfileCount();
   UI.init();

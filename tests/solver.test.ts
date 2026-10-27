@@ -78,5 +78,19 @@ describe('MathSolver Core Logic Tests', () => {
       expect(res.error).toBeFalsy();
       expect(res.answer).toBe('5x');
     });
+    it('evaluates simple addition: 2+2', async () => {
+      const res = await Solver.solve('2+2');
+      expect(res.error).toBeFalsy();
+      expect(res.answer).toBe('4');
+    });
+
+    it('verifies memoization cache returns cached result on identical inputs', async () => {
+      const res1 = await Solver.solve('5 * 6');
+      expect(res1.answer).toBe('30');
+      // Second call should hit _solveCache
+      const res2 = await Solver.solve('5 * 6');
+      expect(res2.answer).toBe('30');
+      expect(Solver._solveCache.has('5 * 6')).toBe(true);
+    });
   });
 });

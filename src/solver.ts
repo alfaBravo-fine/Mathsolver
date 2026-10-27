@@ -48,6 +48,8 @@ export const Solver = {
     return vars;
   },
 
+  _solveCache: new Map<string, SolveResult>(),
+
   async solve(rawInput: string): Promise<SolveResult> {
     if (!rawInput || !rawInput.trim()) {
       return {
@@ -57,6 +59,25 @@ export const Solver = {
         steps: [{ title: "Input Error", expression: "", note: "Please enter a valid mathematical expression." }]
       };
     }
+
+    const key = rawInput.trim();
+    if (!this._solveCache) this._solveCache = new Map();
+    if (this._solveCache.has(key)) {
+      return JSON.parse(JSON.stringify(this._solveCache.get(key)!));
+    }
+
+    const result = await this._solveInternal(rawInput);
+    if (result && !result.error) {
+      if (this._solveCache.size > 200) {
+        const oldest = this._solveCache.keys().next().value;
+        if (oldest !== undefined) this._solveCache.delete(oldest);
+      }
+      this._solveCache.set(key, JSON.parse(JSON.stringify(result)));
+    }
+    return result;
+  },
+
+  async _solveInternal(rawInput: string): Promise<SolveResult> {
 
     let clean = rawInput.trim();
 
