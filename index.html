@@ -56,6 +56,12 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    /* Universal touch-action manipulation to eliminate 300ms tap delay & UI button lag */
+    button, [role="button"], .math-key-btn, .keypad-tab-btn, .formula-cat-btn, .method-pill, .interactive-card, input, select {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     /* Crisp Pure White Light Theme & Deep Slate Dark Theme */
     :root {
       --bg-primary: #ffffff;
@@ -154,7 +160,7 @@
     }
     .pm-slot-input:focus {
       border: 1.5px solid #708764;
-      background-color: #f7f6f0;
+      background-color: #ffffff;
       box-shadow: 0 0 0 3px rgba(112, 135, 100, 0.2);
     }
     html.dark .pm-slot-input {
@@ -525,7 +531,7 @@
               <!-- Ghost text overlay -->
               <div id="ghostInputOverlay" class="absolute inset-0 p-3.5 font-mono text-sm pointer-events-none whitespace-pre-wrap break-words overflow-hidden leading-[1.42857] z-10 text-gray-400/60 dark:text-gray-500/70 select-none" aria-hidden="true"></div>
               
-              <textarea id="mathInput" rows="3" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Enter equation e.g. 2x + 5 = 15, 3(2x - 5), x^2 - 5x + 6 = 0..." class="relative z-20 w-full p-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sage-green text-sm text-gray-800 dark:text-gray-100 font-mono leading-[1.42857] resize-none"></textarea>
+              <textarea id="mathInput" rows="3" readonly inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Enter equation e.g. 2x + 5 = 15, 3(2x - 5), x^2 - 5x + 6 = 0..." class="relative z-20 w-full p-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sage-green text-sm text-gray-800 dark:text-gray-100 font-mono leading-[1.42857] resize-none"></textarea>
             </div>
 
             <!-- Real-Time Token Predictive Suggestions Dropdown -->
@@ -1476,9 +1482,30 @@ function showToast(message, type = 'info') {
   }, 3500);
 }
 
-async function typeset(element) {
-  if (window.MathJax && window.MathJax.typesetPromise) {
-    try { await window.MathJax.typesetPromise(element ? [element] : null); } catch (e) { console.warn(e); }
+let typesetQueue = new Set();
+let typesetScheduled = false;
+
+function typeset(element) {
+  if (!window.MathJax || !window.MathJax.typesetPromise) return;
+  if (element) {
+    typesetQueue.add(element);
+  }
+  if (!typesetScheduled) {
+    typesetScheduled = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
+        const elements = Array.from(typesetQueue).filter(el => el && document.body.contains(el));
+        typesetQueue.clear();
+        typesetScheduled = false;
+        if (elements.length > 0) {
+          try {
+            await window.MathJax.typesetPromise(elements);
+          } catch (e) {
+            console.warn('MathJax typeset error:', e);
+          }
+        }
+      });
+    });
   }
 }
 
@@ -2999,18 +3026,118 @@ const FORMULA_GROUPS_2 = [
     ]
   },
 
-  // ================= 10. SIMULTANEOUS LINEAR SYSTEMS (ALL 4 RULES) =================
+  // ================= 10. SIMULTANEOUS LINEAR SYSTEMS (SUB-TABS FOR METHODS) =================
   {
     id: 'simultaneous_systems',
     category: 'Systems',
     subCategory: 'Linear Systems',
-    title: 'Simultaneous Linear Systems (4 Methods)',
-    subtitle: 'Solve { a₁x + b₁y = c₁, a₂x + b₂y = c₂ } via Substitution, Elimination, Cramer\'s, or Inversion',
+    title: 'Simultaneous Linear Systems (Methods)',
+    subtitle: 'Solve { a₁x + b₁y = c₁, a₂x + b₂y = c₂ } via Division Method, Factorization Method, Substitution, or Elimination',
     latex: '\\begin{cases} a_1 x + b_1 y = c_1 \\\\ a_2 x + b_2 y = c_2 \\end{cases}',
     subFormulas: [
       {
+        id: 'sim_division',
+        title: '1. Division Method (Matrix / Cramer)',
+        desc: 'Solve system using Matrix Division & Cramer\'s Rule determinants: x = D_x / D, y = D_y / D',
+        latex: 'D = \\begin{vmatrix} a_1 & b_1 \\\\ a_2 & b_2 \\end{vmatrix}, \\quad x = \\frac{D_x}{D}, \\quad y = \\frac{D_y}{D}',
+        template: 'Division Method: a1*x + b1*y = c1, a2*x + b2*y = c2',
+        vars: [
+          { id: 'a1', label: 'a₁', default: 2, type: 'number' },
+          { id: 'b1', label: 'b₁', default: 3, type: 'number' },
+          { id: 'c1', label: 'c₁', default: 13, type: 'number' },
+          { id: 'a2', label: 'a₂', default: 5, type: 'number' },
+          { id: 'b2', label: 'b₂', default: -2, type: 'number' },
+          { id: 'c2', label: 'c₂', default: 4, type: 'number' }
+        ],
+        compute(v) {
+          const a1 = parseFloat(v.a1), b1 = parseFloat(v.b1), c1 = parseFloat(v.c1);
+          const a2 = parseFloat(v.a2), b2 = parseFloat(v.b2), c2 = parseFloat(v.c2);
+          const D = a1 * b2 - a2 * b1;
+          if (Math.abs(D) < 1e-9) return { error: "Matrix is singular (D = 0); no unique solution exists." };
+          const Dx = c1 * b2 - c2 * b1;
+          const Dy = a1 * c2 - a2 * c1;
+          const x = Dx / D;
+          const y = Dy / D;
+          const cx = Number.isInteger(x) ? x : parseFloat(x.toFixed(4));
+          const cy = Number.isInteger(y) ? y : parseFloat(y.toFixed(4));
+          const inter = [
+            { title: "Matrix Equation (AX = B)", expression: `\\begin{pmatrix} ${a1} & ${b1} \\\\ ${a2} & ${b2} \\end{pmatrix} \\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} ${c1} \\\\ ${c2} \\end{pmatrix}`, note: "Standard matrix form representation" },
+            { title: "Compute Coefficient Determinant D", expression: `D = (${a1})(${b2}) - (${a2})(${b1}) = ${a1*b2} - (${a2*b1}) = ${D}`, note: "Base determinant of coefficient matrix" },
+            { title: "Compute Column 1 Determinant D_x", expression: `D_x = (${c1})(${b2}) - (${c2})(${b1}) = ${c1*b2} - (${c2*b1}) = ${Dx}`, note: "Replace column 1 with constant vector B" },
+            { title: "Compute Column 2 Determinant D_y", expression: `D_y = (${a1})(${c2}) - (${a2})(${c1}) = ${a1*c2} - (${a2*c1}) = ${Dy}`, note: "Replace column 2 with constant vector B" },
+            { title: "Matrix Division & Quotient Evaluation", expression: `x = \\frac{D_x}{D} = \\frac{${Dx}}{${D}} = ${cx}, \\quad y = \\frac{D_y}{D} = \\frac{${Dy}}{${D}} = ${cy}`, note: "Divide modified determinants by base determinant" }
+          ];
+          return {
+            formulaStatement: { title: "Division Method (Matrix Division / Cramer's Rule)", latex: "x = \\frac{\\det(A_1)}{\\det(A)}, \\quad y = \\frac{\\det(A_2)}{\\det(A)}" },
+            givenValues: `\\text{Eq 1: } ${a1}x + ${b1}y = ${c1}, \\quad \\text{Eq 2: } ${a2}x + ${b2}y = ${c2}`,
+            substitution: `x = \\frac{${Dx}}{${D}} = ${cx}, \\quad y = \\frac{${Dy}}{${D}} = ${cy}`,
+            intermediateSteps: inter,
+            finalResult: `x = ${cx}, \\; y = ${cy}`,
+            answer: `x = ${cx}, y = ${cy}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "X = A^{-1}B = \\frac{\\text{adj}(A)B}{\\det(A)}", note: "Matrix division algorithm" },
+              { title: "Step 2: Given Values", expression: `a_1=${a1}, b_1=${b1}, c_1=${c1}, a_2=${a2}, b_2=${b2}, c_2=${c2}`, note: "Matrix coefficients" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `x = ${cx}, \\quad y = ${cy}`, note: "Division method verified" }
+            ]
+          };
+        }
+      },
+      {
+        id: 'sim_factorization',
+        title: '2. Factorization Method (Triangular Elimination)',
+        desc: 'Solve system using Systematic Triangular Row Elimination: eliminate x to produce an upper-triangular system',
+        latex: 'L \\cdot U \\cdot X = B \\implies \\text{Eq}_2 - m \\cdot \\text{Eq}_1 \\implies (b_2 - m b_1)y = c_2 - m c_1',
+        template: 'Factorization Method: a1*x + b1*y = c1, a2*x + b2*y = c2',
+        vars: [
+          { id: 'a1', label: 'a₁', default: 2, type: 'number' },
+          { id: 'b1', label: 'b₁', default: 3, type: 'number' },
+          { id: 'c1', label: 'c₁', default: 13, type: 'number' },
+          { id: 'a2', label: 'a₂', default: 5, type: 'number' },
+          { id: 'b2', label: 'b₂', default: -2, type: 'number' },
+          { id: 'c2', label: 'c₂', default: 4, type: 'number' }
+        ],
+        compute(v) {
+          const a1 = parseFloat(v.a1), b1 = parseFloat(v.b1), c1 = parseFloat(v.c1);
+          const a2 = parseFloat(v.a2), b2 = parseFloat(v.b2), c2 = parseFloat(v.c2);
+          if (a1 === 0) return { error: "Coefficient a₁ cannot be 0 for triangular row factorization." };
+          const m = a2 / a1;
+          const cleanM = Number.isInteger(m) ? m : parseFloat(m.toFixed(4));
+          const elimB = b2 - m * b1;
+          const elimC = c2 - m * c1;
+          if (Math.abs(elimB) < 1e-9) return { error: "System has no unique triangular factorization (rows are linearly dependent)." };
+          const y = elimC / elimB;
+          const x = (c1 - b1 * y) / a1;
+          const cx = Number.isInteger(x) ? x : parseFloat(x.toFixed(4));
+          const cy = Number.isInteger(y) ? y : parseFloat(y.toFixed(4));
+          const cleanElimB = Number.isInteger(elimB) ? elimB : parseFloat(elimB.toFixed(4));
+          const cleanElimC = Number.isInteger(elimC) ? elimC : parseFloat(elimC.toFixed(4));
+          const inter = [
+            { title: "Align System Equations", expression: `\\begin{cases} (1): ${a1}x + ${b1}y = ${c1} \\\\ (2): ${a2}x + ${b2}y = ${c2} \\end{cases}`, note: "Standard system representation" },
+            { title: "Determine Row Pivot Elimination Factor", expression: `m = \\frac{a_2}{a_1} = \\frac{${a2}}{${a1}} = ${cleanM}`, note: "Scalar multiplier to eliminate x from equation 2" },
+            { title: "Triangular Factorization / Row Elimination", expression: `\\text{Eq}(2) - (${cleanM})\\text{Eq}(1) \\implies (${cleanElimB})y = ${cleanElimC}`, note: "Converts system to upper-triangular echelon form" },
+            { title: "Back-Substitution for y", expression: `y = \\frac{${cleanElimC}}{${cleanElimB}} = ${cy}`, note: "Solve upper-triangular diagonal" },
+            { title: "Back-Substitution for x in Eq(1)", expression: `${a1}x + (${b1})(${cy}) = ${c1} \\implies ${a1}x = ${c1 - b1*cy} \\implies x = ${cx}`, note: "Substitute y into original top row" }
+          ];
+          return {
+            formulaStatement: { title: "Factorization Method (Systematic Triangular Row Elimination)", latex: "L \\cdot U \\cdot X = B \\implies U \\cdot X = Y" },
+            givenValues: `\\text{Eq 1: } ${a1}x + ${b1}y = ${c1}, \\quad \\text{Eq 2: } ${a2}x + ${b2}y = ${c2}`,
+            substitution: `m = ${cleanM}, \\quad y = ${cy}, \\quad x = ${cx}`,
+            intermediateSteps: inter,
+            finalResult: `x = ${cx}, \\; y = ${cy}`,
+            answer: `x = ${cx}, y = ${cy}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\text{Triangular Row Factorization}", note: "Systematic Gaussian triangularization" },
+              { title: "Step 2: Given Values", expression: `a_1=${a1}, b_1=${b1}, c_1=${c1}, a_2=${a2}, b_2=${b2}, c_2=${c2}`, note: "Input coefficients" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `x = ${cx}, \\quad y = ${cy}`, note: "Factorization solution verified" }
+            ]
+          };
+        }
+      },
+      {
         id: 'sim_substitution',
-        title: '1. Substitution Method',
+        title: '3. Substitution Method',
         desc: 'Isolate one variable from Eq 1 and substitute into Eq 2',
         latex: 'x = \\frac{c_1 - b_1 y}{a_1} \\implies a_2\\left(\\frac{c_1 - b_1 y}{a_1}\\right) + b_2 y = c_2',
         template: 'Substitution: a1*x + b1*y = c1, a2*x + b2*y = c2',
@@ -3056,7 +3183,7 @@ const FORMULA_GROUPS_2 = [
       },
       {
         id: 'sim_elimination',
-        title: '2. Elimination Method',
+        title: '4. Elimination Method',
         desc: 'Multiply equations by scale factors to eliminate one variable by addition or subtraction',
         latex: '(a_2 \\cdot \\text{Eq 1}) - (a_1 \\cdot \\text{Eq 2}) \\implies (a_2 b_1 - a_1 b_2)y = a_2 c_1 - a_1 c_2',
         template: 'Elimination: a1*x + b1*y = c1, a2*x + b2*y = c2',
@@ -3095,100 +3222,6 @@ const FORMULA_GROUPS_2 = [
               { title: "Step 2: Given Values", expression: `\\text{System: } ${a1}x + ${b1}y = ${c1}, \\quad ${a2}x + ${b2}y = ${c2}`, note: "Input linear equations" },
               ...inter,
               { title: "Step 5: Final Result", expression: `x = ${cx}, \\quad y = ${cy}`, note: "Elimination solved" }
-            ]
-          };
-        }
-      },
-      {
-        id: 'sim_cramer',
-        title: '3. Cramer\'s Rule',
-        desc: 'Solve system using determinants: x = D_x / D, y = D_y / D',
-        latex: 'D = \\begin{vmatrix} a_1 & b_1 \\\\ a_2 & b_2 \\end{vmatrix}, \\quad D_x = \\begin{vmatrix} c_1 & b_1 \\\\ c_2 & b_2 \\end{vmatrix}, \\quad D_y = \\begin{vmatrix} a_1 & c_1 \\\\ a_2 & c_2 \\end{vmatrix}',
-        template: 'Cramer: D = a1*b2 - a2*b1, x = Dx/D, y = Dy/D',
-        vars: [
-          { id: 'a1', label: 'a₁', default: 4, type: 'number' },
-          { id: 'b1', label: 'b₁', default: -3, type: 'number' },
-          { id: 'c1', label: 'c₁', default: 10, type: 'number' },
-          { id: 'a2', label: 'a₂', default: 3, type: 'number' },
-          { id: 'b2', label: 'b₂', default: 5, type: 'number' },
-          { id: 'c2', label: 'c₂', default: 22, type: 'number' }
-        ],
-        compute(v) {
-          const a1 = parseFloat(v.a1), b1 = parseFloat(v.b1), c1 = parseFloat(v.c1);
-          const a2 = parseFloat(v.a2), b2 = parseFloat(v.b2), c2 = parseFloat(v.c2);
-          const D = a1 * b2 - a2 * b1;
-          if (Math.abs(D) < 1e-9) return { error: "Cramer's rule is inapplicable when determinant D = 0." };
-          const Dx = c1 * b2 - c2 * b1;
-          const Dy = a1 * c2 - a2 * c1;
-          const x = Dx / D;
-          const y = Dy / D;
-          const cx = Number.isInteger(x) ? x : parseFloat(x.toFixed(4));
-          const cy = Number.isInteger(y) ? y : parseFloat(y.toFixed(4));
-          const inter = [
-            { title: "Coefficient Determinant D", expression: `D = (${a1})(${b2}) - (${a2})(${b1}) = ${a1*b2} - (${a2*b1}) = ${D}`, note: "Main coefficient determinant" },
-            { title: "X Determinant D_x", expression: `D_x = (${c1})(${b2}) - (${c2})(${b1}) = ${c1*b2} - (${c2*b1}) = ${Dx}`, note: "Replace column 1 with constants" },
-            { title: "Y Determinant D_y", expression: `D_y = (${a1})(${c2}) - (${a2})(${c1}) = ${a1*c2} - (${a2*c1}) = ${Dy}`, note: "Replace column 2 with constants" },
-            { title: "Compute Variables", expression: `x = \\frac{D_x}{D} = \\frac{${Dx}}{${D}} = ${cx}, \\quad y = \\frac{D_y}{D} = \\frac{${Dy}}{${D}} = ${cy}`, note: "Ratio of determinants" }
-          ];
-          return {
-            formulaStatement: { title: "Cramer's Rule", latex: "x = \\frac{D_x}{D}, \\quad y = \\frac{D_y}{D}" },
-            givenValues: `\\begin{pmatrix} ${a1} & ${b1} \\\\ ${a2} & ${b2} \\end{pmatrix} \\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} ${c1} \\\\ ${c2} \\end{pmatrix}`,
-            substitution: `D = \\begin{vmatrix} ${a1} & ${b1} \\\\ ${a2} & ${b2} \\end{vmatrix}`,
-            intermediateSteps: inter,
-            finalResult: `x = ${cx}, y = ${cy}`,
-            answer: `x = ${cx}, y = ${cy}`,
-            steps: [
-              { title: "Step 1: Formula Statement", expression: "x = \\frac{D_x}{D}, \\quad y = \\frac{D_y}{D}", note: "Cramer determinant theorem" },
-              { title: "Step 2: Given Values", expression: `a_1=${a1}, b_1=${b1}, c_1=${c1}, a_2=${a2}, b_2=${b2}, c_2=${c2}`, note: "Coefficients" },
-              ...inter,
-              { title: "Step 5: Final Result", expression: `x = ${cx}, \\quad y = ${cy}`, note: "Cramer's rule verified" }
-            ]
-          };
-        }
-      },
-      {
-        id: 'sim_inversion',
-        title: '4. Matrix Inversion Rule',
-        desc: 'Solve matrix equation AX = B via inverse: X = A⁻¹ B = (1/det(A)) * adj(A) * B',
-        latex: '\\mathbf{X} = \\mathbf{A}^{-1} \\mathbf{B} = \\frac{1}{a_1 b_2 - a_2 b_1} \\begin{pmatrix} b_2 & -b_1 \\\\ -a_2 & a_1 \\end{pmatrix} \\begin{pmatrix} c_1 \\\\ c_2 \\end{pmatrix}',
-        template: 'Matrix Inversion: X = A^(-1) * B',
-        vars: [
-          { id: 'a1', label: 'a₁', default: 1, type: 'number' },
-          { id: 'b1', label: 'b₁', default: 2, type: 'number' },
-          { id: 'c1', label: 'c₁', default: 8, type: 'number' },
-          { id: 'a2', label: 'a₂', default: 3, type: 'number' },
-          { id: 'b2', label: 'b₂', default: -1, type: 'number' },
-          { id: 'c2', label: 'c₂', default: 3, type: 'number' }
-        ],
-        compute(v) {
-          const a1 = parseFloat(v.a1), b1 = parseFloat(v.b1), c1 = parseFloat(v.c1);
-          const a2 = parseFloat(v.a2), b2 = parseFloat(v.b2), c2 = parseFloat(v.c2);
-          const det = a1 * b2 - a2 * b1;
-          if (Math.abs(det) < 1e-9) return { error: "Matrix is singular (det A = 0), inverse does not exist." };
-          const inv11 = b2 / det, inv12 = -b1 / det;
-          const inv21 = -a2 / det, inv22 = a1 / det;
-          const x = inv11 * c1 + inv12 * c2;
-          const y = inv21 * c1 + inv22 * c2;
-          const cx = Number.isInteger(x) ? x : parseFloat(x.toFixed(4));
-          const cy = Number.isInteger(y) ? y : parseFloat(y.toFixed(4));
-          const inter = [
-            { title: "Coefficient Matrix Determinant", expression: "\\det(A) = (" + a1 + ")(" + b2 + ") - (" + a2 + ")(" + b1 + ") = " + det, note: "Matrix invertibility condition det ≠ 0" },
-            { title: "Adjugate Matrix adj(A)", expression: "\\text{adj}(A) = \\begin{pmatrix} " + b2 + " & " + (-b1) + " \\\\ " + (-a2) + " & " + a1 + " \\end{pmatrix}", note: "Transpose of cofactor matrix" },
-            { title: "Inverse Matrix A⁻¹", expression: "A^{-1} = \\frac{1}{" + det + "} \\begin{pmatrix} " + b2 + " & " + (-b1) + " \\\\ " + (-a2) + " & " + a1 + " \\end{pmatrix}", note: "Scale adjugate by 1/det" },
-            { title: "Matrix Multiplication X = A⁻¹ B", expression: "\\begin{pmatrix} x \\\\ y \\end{pmatrix} = A^{-1} \\begin{pmatrix} " + c1 + " \\\\ " + c2 + " \\end{pmatrix} = \\begin{pmatrix} " + cx + " \\\\ " + cy + " \\end{pmatrix}", note: "Row-by-column product" }
-          ];
-          return {
-            formulaStatement: { title: "Matrix Inversion Formula", latex: "\\mathbf{X} = \\mathbf{A}^{-1} \\mathbf{B}" },
-            givenValues: `A = \\begin{pmatrix} ${a1} & ${b1} \\\\ ${a2} & ${b2} \\end{pmatrix}, \\quad B = \\begin{pmatrix} ${c1} \\\\ ${c2} \\end{pmatrix}`,
-            substitution: `\\mathbf{X} = \\frac{1}{${det}} \\begin{pmatrix} ${b2} & ${-b1} \\\\ ${-a2} & ${a1} \\end{pmatrix} \\begin{pmatrix} ${c1} \\\\ ${c2} \\end{pmatrix}`,
-            intermediateSteps: inter,
-            finalResult: `x = ${cx}, y = ${cy}`,
-            answer: `x = ${cx}, y = ${cy}`,
-            steps: [
-              { title: "Step 1: Formula Statement", expression: "\\mathbf{X} = \\mathbf{A}^{-1} \\mathbf{B}", note: "Matrix inversion principle" },
-              { title: "Step 2: Given Values", expression: `\\text{Matrix system coefficients}`, note: "Input arrays" },
-              ...inter,
-              { title: "Step 5: Final Result", expression: `x = ${cx}, \\quad y = ${cy}`, note: "Matrix inversion completed" }
             ]
           };
         }
@@ -7955,1253 +7988,1262 @@ const FORMULA_GROUPS_5 = [
 /**
  * FORMULA ENGINE CONTROLLER, OCR PIPELINE, AND UI LOGIC
  */
+/**
+ * CORE THEOREMS (9 HIERARCHICAL GROUPS WITH SUB-TABS FOR VARIATIONS)
+ * Group 1: Pythagorean Group (Hypotenuse, Leg, 3D Distance, Triples)
+ * Group 2: Quadratics & Polynomials (Formula, Vieta, Remainder, Binomial)
+ * Group 3: Triangle Laws (Cosines, Sines, Tangents, Heron)
+ * Group 4: Trigonometric Identities (Pythagorean Identity, Double-Angle, Compound Addition)
+ * Group 5: Differential Calculus (Power, Product, Quotient, Chain)
+ * Group 6: Integral Calculus & Limits (FTC, L'Hôpital, Taylor Polynomial)
+ * Group 7: Number Theory (Prime Factorization, Euclidean GCD, Fermat, Totient, CRT)
+ * Group 8: Progression & Series (Arithmetic Series Sum, Geometric Series Sum)
+ * Group 9: Topology & Polyhedra (Euler's Polyhedron, Euler Characteristic)
+ */
 const CORE_THEOREMS_26 = [
+  // ================= GROUP 1: PYTHAGOREAN GROUP =================
   {
-    id: "thm_pythagoras",
+    id: "thm_group_pythagoras",
     category: "Theorems",
     subCategory: "Geometry",
-    title: "Pythagorean Theorem",
-    subtitle: "Fundamental relation in right-angled geometry: a² + b² = c²",
-    latex: "a^2 + b^2 = c^2 \\implies c = \\sqrt{a^2 + b^2}",
+    title: "Pythagorean Theorem & Variations",
+    subtitle: "Right-angled geometry & spatial metrics: Hypotenuse, Leg, 3D Distance, and Triples",
+    latex: "a^2 + b^2 = c^2, \\quad d = \\sqrt{\\Delta x^2 + \\Delta y^2 + \\Delta z^2}",
     subFormulas: [
       {
-        id: "thm_pythagoras_calc",
-        title: "Hypotenuse Calculator",
+        id: "thm_pyth_hypotenuse",
+        title: "1. Hypotenuse (c = √(a² + b²))",
         desc: "Calculate hypotenuse c given perpendicular legs a and b",
         latex: "c = \\sqrt{a^2 + b^2}",
         template: "sqrt(a^2 + b^2)",
-        vars: [{"id":"a","label":"Leg a","default":3,"type":"number"},{"id":"b","label":"Leg b","default":4,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), b = parseFloat(v.b);
-        if (a <= 0 || b <= 0) return { error: "Leg lengths must be positive numbers." };
-        const aSq = a * a, bSq = b * b, cSq = aSq + bSq, c = Math.sqrt(cSq);
-        const cleanC = parseFloat(c.toFixed(4));
-        return {
-          formulaStatement: { title: "Pythagorean Theorem", latex: "a^2 + b^2 = c^2 \implies c = \sqrt{a^2 + b^2}" },
-          givenValues: `a = ${a}, \\quad b = ${b}`,
-          substitution: `c = \\sqrt{${a}^2 + ${b}^2} = \\sqrt{${aSq} + ${bSq}}`,
-          intermediateSteps: [
+        vars: [
+          { id: "a", label: "Leg a", default: 3, type: "number" },
+          { id: "b", label: "Leg b", default: 4, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), b = parseFloat(v.b);
+          if (a <= 0 || b <= 0) return { error: "Leg lengths must be positive numbers." };
+          const aSq = a * a, bSq = b * b, cSq = aSq + bSq, c = Math.sqrt(cSq);
+          const cleanC = parseFloat(c.toFixed(4));
+          const inter = [
             { title: "Square Both Legs", expression: `${a}^2 = ${aSq}, \\quad ${b}^2 = ${bSq}`, note: "Square individual orthogonal legs" },
             { title: "Sum of Squares", expression: `${aSq} + ${bSq} = ${cSq}`, note: "Evaluate sum under radical" },
             { title: "Square Root", expression: `c = \\sqrt{${cSq}} = ${cleanC}`, note: "Take principal square root" }
-          ],
-          finalResult: `c = ${cleanC}`,
-          answer: `c = ${cleanC}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "c = \\sqrt{a^2 + b^2}", note: "Pythagorean hypotenuse formula" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; b = ${b}`, note: "Perpendicular leg lengths" },
-            { title: "Step 3: Substitution", expression: `c = \\sqrt{${a}^2 + ${b}^2}`, note: "Substitute known parameters" },
-            { title: "Step 4: Simplification", expression: `c = \\sqrt{${cSq}} = ${cleanC}`, note: "Calculate numerical square root" },
-            { title: "Step 5: Final Result", expression: `c = ${cleanC}`, note: "Hypotenuse verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_quadratic",
-    category: "Theorems",
-    subCategory: "Algebra",
-    title: "Quadratic Formula & Discriminant",
-    subtitle: "Analytical root resolution of any quadratic equation ax² + bx + c = 0",
-    latex: "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}, \\quad \\Delta = b^2 - 4ac",
-    subFormulas: [
-      {
-        id: "thm_quadratic_calc",
-        title: "Roots of Quadratic Equation",
-        desc: "Find all real or complex roots via analytical quadratic formula",
-        latex: "x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}",
-        template: "(-b +- sqrt(b^2 - 4*a*c))/(2*a)",
-        vars: [{"id":"a","label":"Coefficient a (a ≠ 0)","default":1,"type":"number"},{"id":"b","label":"Coefficient b","default":-5,"type":"number"},{"id":"c","label":"Constant c","default":6,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), b = parseFloat(v.b), c = parseFloat(v.c);
-        if (a === 0) return { error: "Coefficient a cannot be 0 in a quadratic equation." };
-        const disc = b * b - 4 * a * c;
-        let ansStr = '';
-        const inter = [
-          { title: "Compute Discriminant", expression: `\\Delta = (${b})^2 - 4(${a})(${c}) = ${disc}`, note: disc >= 0 ? "Non-negative discriminant yields real roots" : "Negative discriminant yields complex conjugate roots" }
-        ];
-        if (disc >= 0) {
-          const r1 = (-b + Math.sqrt(disc)) / (2 * a);
-          const r2 = (-b - Math.sqrt(disc)) / (2 * a);
-          const c1 = parseFloat(r1.toFixed(4)), c2 = parseFloat(r2.toFixed(4));
-          ansStr = c1 === c2 ? `x = ${c1}` : `x_1 = ${c1}, \\; x_2 = ${c2}`;
-          inter.push({ title: "Evaluate Roots", expression: `x = \\frac{-\\left(${b}\\right) \\pm \\sqrt{${disc}}}{2(${a})} \\implies ${ansStr}`, note: "Substitute discriminant" });
-        } else {
-          const realP = parseFloat((-b / (2 * a)).toFixed(4));
-          const imagP = parseFloat((Math.sqrt(-disc) / (2 * a)).toFixed(4));
-          ansStr = `x = ${realP} \\pm ${Math.abs(imagP)}i`;
-          inter.push({ title: "Evaluate Complex Roots", expression: ansStr, note: "Imaginary unit i = √(-1)" });
+          ];
+          return {
+            formulaStatement: { title: "Pythagorean Hypotenuse Formula", latex: "c = \\sqrt{a^2 + b^2}" },
+            givenValues: `a = ${a}, \\quad b = ${b}`,
+            substitution: `c = \\sqrt{${a}^2 + ${b}^2} = \\sqrt{${aSq} + ${bSq}}`,
+            intermediateSteps: inter,
+            finalResult: `c = ${cleanC}`,
+            answer: `c = ${cleanC}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "c = \\sqrt{a^2 + b^2}", note: "Pythagorean hypotenuse formula" },
+              { title: "Step 2: Given Values", expression: `a = ${a}, \\; b = ${b}`, note: "Perpendicular legs" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `c = ${cleanC}`, note: "Hypotenuse verified" }
+            ]
+          };
         }
-        return {
-          formulaStatement: { title: "Quadratic Formula", latex: "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}" },
-          givenValues: `a = ${a}, \\quad b = ${b}, \\quad c = ${c}`,
-          substitution: `x = \\frac{-(${b}) \\pm \\sqrt{(${b})^2 - 4(${a})(${c})}}{2(${a})}`,
-          intermediateSteps: inter,
-          finalResult: ansStr,
-          answer: ansStr,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}", note: "Standard quadratic resolution formula" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; b = ${b}, \\; c = ${c}`, note: "Trinomial coefficients" },
-            { title: "Step 3: Substitution", expression: `\\Delta = ${b}^2 - 4(${a})(${c}) = ${disc}`, note: "Discriminant evaluated" },
-            { title: "Step 4: Radical Resolution", expression: `\\sqrt{\\Delta} = ${disc >= 0 ? Math.sqrt(disc).toFixed(4) : Math.sqrt(-disc).toFixed(4) + 'i'}`, note: "Root computation" },
-            { title: "Step 5: Final Result", expression: ansStr, note: "Roots verified" }
-          ]
-        };
-      }
+      },
+      {
+        id: "thm_pyth_leg",
+        title: "2. Perpendicular Leg (a = √(c² - b²))",
+        desc: "Calculate unknown leg a given hypotenuse c and known leg b",
+        latex: "a = \\sqrt{c^2 - b^2} \\quad (c > b)",
+        template: "sqrt(c^2 - b^2)",
+        vars: [
+          { id: "c", label: "Hypotenuse (c)", default: 5, type: "number" },
+          { id: "b", label: "Known Leg (b)", default: 4, type: "number" }
+        ],
+        compute(v) {
+          const c = parseFloat(v.c), b = parseFloat(v.b);
+          if (c <= 0 || b <= 0) return { error: "Lengths must be positive numbers." };
+          if (c <= b) return { error: "Hypotenuse c must be strictly greater than leg b." };
+          const cSq = c * c, bSq = b * b, diff = cSq - bSq, a = Math.sqrt(diff);
+          const cleanA = parseFloat(a.toFixed(4));
+          const inter = [
+            { title: "Square Hypotenuse & Leg", expression: `c^2 = ${cSq}, \\quad b^2 = ${bSq}`, note: "Compute squares" },
+            { title: "Subtract Squares", expression: `c^2 - b^2 = ${cSq} - ${bSq} = ${diff}`, note: "Difference of squares under radical" },
+            { title: "Square Root", expression: `a = \\sqrt{${diff}} = ${cleanA}`, note: "Principal square root" }
+          ];
+          return {
+            formulaStatement: { title: "Pythagorean Leg Formula", latex: "a = \\sqrt{c^2 - b^2}" },
+            givenValues: `c = ${c}, \\quad b = ${b}`,
+            substitution: `a = \\sqrt{${c}^2 - ${b}^2} = \\sqrt{${diff}}`,
+            intermediateSteps: inter,
+            finalResult: `a = ${cleanA}`,
+            answer: `a = ${cleanA}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "a = \\sqrt{c^2 - b^2}", note: "Rearranged Pythagorean theorem" },
+              { title: "Step 2: Given Values", expression: `c = ${c}, \\; b = ${b}`, note: "Hypotenuse and leg" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `a = ${cleanA}`, note: "Unknown leg evaluated" }
+            ]
+          };
+        }
+      },
+      {
+        id: "thm_pyth_3d",
+        title: "3. 3D Spatial Distance",
+        desc: "Calculate 3-dimensional Euclidean distance between points in space",
+        latex: "d = \\sqrt{\\Delta x^2 + \\Delta y^2 + \\Delta z^2}",
+        template: "sqrt(dx^2 + dy^2 + dz^2)",
+        vars: [
+          { id: "dx", label: "Δx = x₂ - x₁", default: 2, type: "number" },
+          { id: "dy", label: "Δy = y₂ - y₁", default: 3, type: "number" },
+          { id: "dz", label: "Δz = z₂ - z₁", default: 6, type: "number" }
+        ],
+        compute(v) {
+          const dx = parseFloat(v.dx), dy = parseFloat(v.dy), dz = parseFloat(v.dz);
+          const sumSq = dx * dx + dy * dy + dz * dz;
+          const d = Math.sqrt(sumSq);
+          const cleanD = parseFloat(d.toFixed(4));
+          const inter = [
+            { title: "Square Deltas", expression: `(${dx})^2 = ${dx*dx}, \\; (${dy})^2 = ${dy*dy}, \\; (${dz})^2 = ${dz*dz}`, note: "Squares of component separations" },
+            { title: "Sum of Squares", expression: `${dx*dx} + ${dy*dy} + ${dz*dz} = ${sumSq}`, note: "Radicand" },
+            { title: "Square Root", expression: `d = \\sqrt{${sumSq}} = ${cleanD}`, note: "Euclidean 3D distance" }
+          ];
+          return {
+            formulaStatement: { title: "3D Distance Metric", latex: "d = \\sqrt{\\Delta x^2 + \\Delta y^2 + \\Delta z^2}" },
+            givenValues: `\\Delta x = ${dx}, \\; \\Delta y = ${dy}, \\; \\Delta z = ${dz}`,
+            substitution: `d = \\sqrt{(${dx})^2 + (${dy})^2 + (${dz})^2}`,
+            intermediateSteps: inter,
+            finalResult: `d = ${cleanD}`,
+            answer: `d = ${cleanD}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "d = \\sqrt{\\Delta x^2 + \\Delta y^2 + \\Delta z^2}", note: "3D metric extension" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `d = ${cleanD}`, note: "Distance determined" }
+            ]
+          };
+        }
+      },
+      {
+        id: "thm_pyth_triples",
+        title: "4. Pythagorean Triples Verifier",
+        desc: "Verify whether integer triple (a, b, c) satisfies a² + b² = c²",
+        latex: "a^2 + b^2 = c^2 \\iff \\text{Valid Triple}",
+        template: "a^2 + b^2 == c^2",
+        vars: [
+          { id: "a", label: "Side a", default: 5, type: "number" },
+          { id: "b", label: "Side b", default: 12, type: "number" },
+          { id: "c", label: "Side c", default: 13, type: "number" }
+        ],
+        compute(v) {
+          const a = Math.round(parseFloat(v.a)), b = Math.round(parseFloat(v.b)), c = Math.round(parseFloat(v.c));
+          const lhs = a * a + b * b;
+          const rhs = c * c;
+          const isValid = lhs === rhs;
+          const gcd = (x, y) => (!y ? x : gcd(y, x % y));
+          const isPrimitive = isValid && gcd(gcd(a, b), c) === 1;
+          const inter = [
+            { title: "LHS: a² + b²", expression: `${a}^2 + ${b}^2 = ${a*a} + ${b*b} = ${lhs}`, note: "Sum of leg squares" },
+            { title: "RHS: c²", expression: `${c}^2 = ${rhs}`, note: "Square of hypotenuse" },
+            { title: "Comparison & Classification", expression: `${lhs} ${isValid ? '=' : '\\neq'} ${rhs}`, note: isValid ? (isPrimitive ? "Valid Primitive Pythagorean Triple" : "Valid Non-Primitive Pythagorean Triple") : "Not a Pythagorean Triple" }
+          ];
+          return {
+            formulaStatement: { title: "Pythagorean Triple Definition", latex: "a^2 + b^2 = c^2" },
+            givenValues: `a = ${a}, \\; b = ${b}, \\; c = ${c}`,
+            substitution: `${a}^2 + ${b}^2 = ${lhs}, \\quad ${c}^2 = ${rhs}`,
+            intermediateSteps: inter,
+            finalResult: isValid ? `Valid (${isPrimitive ? 'Primitive' : 'Multiple'})` : "Not a Pythagorean Triple",
+            answer: isValid ? "Valid Triple" : "Not a Triple",
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "a^2 + b^2 = c^2", note: "Triple relation" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: isValid ? "a^2 + b^2 = c^2 \\quad \\checkmark" : "a^2 + b^2 \\neq c^2", note: "Triple status" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 2: QUADRATICS & POLYNOMIALS =================
   {
-    id: "thm_binomial",
+    id: "thm_group_quadratics",
     category: "Theorems",
     subCategory: "Algebra",
-    title: "Binomial Theorem",
-    subtitle: "Algebraic expansion of powers of a binomial (a + b)ⁿ using combinations",
-    latex: "(a + b)^n = \\sum_{k=0}^n \\binom{n}{k} a^{n-k} b^k",
+    title: "Quadratics & Polynomial Theorems",
+    subtitle: "Quadratic Formula, Vieta's Root Relations, Remainder Theorem, and Binomial Expansion",
+    latex: "x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}, \\quad x_1+x_2 = -\\frac{b}{a}, \\quad R = P(c), \\quad (a+b)^n = \\sum \\binom{n}{k} a^{n-k}b^k",
     subFormulas: [
       {
-        id: "thm_binomial_calc",
-        title: "Binomial Coefficient (n choose k)",
-        desc: "Calculate combinations C(n, k) = n! / (k!(n - k)!)",
-        latex: "\\binom{n}{k} = \\frac{n!}{k!(n - k)!}",
-        template: "factorial(n)/(factorial(k)*factorial(n-k))",
-        vars: [{"id":"n","label":"Power / Total (n)","default":5,"type":"number"},{"id":"k","label":"Index / Selection (k)","default":2,"type":"number"}],
-        compute: (v) => {
-        const n = Math.round(parseFloat(v.n)), k = Math.round(parseFloat(v.k));
-        if (n < 0 || k < 0 || k > n) return { error: "Requirements: n ≥ 0, 0 ≤ k ≤ n." };
-        const fact = (m) => { let res = 1; for (let i = 2; i <= m; i++) res *= i; return res; };
-        const nFact = fact(n), kFact = fact(k), nkFact = fact(n - k);
-        const coeff = nFact / (kFact * nkFact);
-        return {
-          formulaStatement: { title: "Binomial Coefficient", latex: "\\binom{n}{k} = \\frac{n!}{k!(n - k)!}" },
-          givenValues: `n = ${n}, \\quad k = ${k}`,
-          substitution: `\\binom{${n}}{${k}} = \\frac{${n}!}{${k}!(${n} - ${k})!} = \\frac{${nFact}}{${kFact} \\times ${nkFact}}`,
-          intermediateSteps: [
-            { title: "Factorial Computations", expression: `${n}! = ${nFact}, \\quad ${k}! = ${kFact}, \\quad (${n}-${k})! = ${nkFact}`, note: "Evaluate numerator and denominator factorials" },
-            { title: "Quotient Evaluation", expression: `\\frac{${nFact}}{${kFact * nkFact}} = ${coeff}`, note: "Reduce fraction" }
-          ],
-          finalResult: `\\binom{${n}}{${k}} = ${coeff}`,
-          answer: `${coeff}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\binom{n}{k} = \\frac{n!}{k!(n-k)!}", note: "Combinations formula" },
-            { title: "Step 2: Given Values", expression: `n = ${n}, \\; k = ${k}`, note: "Target parameters" },
-            { title: "Step 3: Substitution", expression: `\\frac{${n}!}{${k}!\\cdot ${n-k}!}`, note: "Insert parameters" },
-            { title: "Step 4: Intermediate Values", expression: `\\frac{${nFact}}{${kFact}\\times${nkFact}}`, note: "Evaluate factorials" },
-            { title: "Step 5: Final Result", expression: `${coeff}`, note: "Combinatorial coefficient verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_vieta",
-    category: "Theorems",
-    subCategory: "Algebra",
-    title: "Vieta's Formulas",
-    subtitle: "Direct relations between the roots of a polynomial and its coefficients",
-    latex: "x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 x_2 = \\frac{c}{a}",
-    subFormulas: [
+        id: "thm_quad_formula",
+        title: "1. Quadratic Formula & Discriminant",
+        desc: "Roots of ax² + bx + c = 0 via analytical quadratic formula",
+        latex: "x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}, \\quad \\Delta = b^2 - 4ac",
+        template: "(-b +- sqrt(b^2 - 4*a*c))/(2*a)",
+        vars: [
+          { id: "a", label: "Coefficient a (a ≠ 0)", default: 1, type: "number" },
+          { id: "b", label: "Coefficient b", default: -5, type: "number" },
+          { id: "c", label: "Constant c", default: 6, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), b = parseFloat(v.b), c = parseFloat(v.c);
+          if (a === 0) return { error: "Coefficient a cannot be 0 in a quadratic equation." };
+          const disc = b * b - 4 * a * c;
+          let ansStr = '';
+          const inter = [
+            { title: "Compute Discriminant", expression: `\\Delta = (${b})^2 - 4(${a})(${c}) = ${disc}`, note: disc >= 0 ? "Non-negative discriminant yields real roots" : "Negative discriminant yields complex conjugate roots" }
+          ];
+          if (disc >= 0) {
+            const r1 = (-b + Math.sqrt(disc)) / (2 * a);
+            const r2 = (-b - Math.sqrt(disc)) / (2 * a);
+            const c1 = parseFloat(r1.toFixed(4)), c2 = parseFloat(r2.toFixed(4));
+            ansStr = c1 === c2 ? `x = ${c1}` : `x_1 = ${c1}, \\; x_2 = ${c2}`;
+            inter.push({ title: "Evaluate Roots", expression: `x = \\frac{-\\left(${b}\\right) \\pm \\sqrt{${disc}}}{2(${a})} \\implies ${ansStr}`, note: "Substitute discriminant" });
+          } else {
+            const realP = parseFloat((-b / (2 * a)).toFixed(4));
+            const imagP = parseFloat((Math.sqrt(-disc) / (2 * a)).toFixed(4));
+            ansStr = `x = ${realP} \\pm ${Math.abs(imagP)}i`;
+            inter.push({ title: "Evaluate Complex Roots", expression: ansStr, note: "Imaginary unit i = √(-1)" });
+          }
+          return {
+            formulaStatement: { title: "Quadratic Formula", latex: "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}" },
+            givenValues: `a = ${a}, \\quad b = ${b}, \\quad c = ${c}`,
+            substitution: `x = \\frac{-(${b}) \\pm \\sqrt{(${b})^2 - 4(${a})(${c})}}{2(${a})}`,
+            intermediateSteps: inter,
+            finalResult: ansStr,
+            answer: ansStr,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}", note: "Standard quadratic resolution formula" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: ansStr, note: "Roots verified" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_vieta_calc",
-        title: "Sum and Product of Roots",
-        desc: "Calculate sum (S) and product (P) of quadratic roots without explicitly solving",
-        latex: "S = -\\frac{b}{a}, \\quad P = \\frac{c}{a}",
-        template: "-b/a",
-        vars: [{"id":"a","label":"Coefficient a (a ≠ 0)","default":2,"type":"number"},{"id":"b","label":"Coefficient b","default":-8,"type":"number"},{"id":"c","label":"Constant c","default":6,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), b = parseFloat(v.b), c = parseFloat(v.c);
-        if (a === 0) return { error: "Coefficient a cannot be zero." };
-        const sum = -b / a, prod = c / a;
-        const cleanS = parseFloat(sum.toFixed(4)), cleanP = parseFloat(prod.toFixed(4));
-        return {
-          formulaStatement: { title: "Vieta's Theorem for Quadratics", latex: "x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 x_2 = \\frac{c}{a}" },
-          givenValues: `a = ${a}, \\quad b = ${b}, \\quad c = ${c}`,
-          substitution: `S = -\\frac{${b}}{${a}} = ${cleanS}, \\quad P = \\frac{${c}}{${a}} = ${cleanP}`,
-          intermediateSteps: [
+        id: "thm_vieta_sub",
+        title: "2. Vieta's Root Relations",
+        desc: "Calculate sum (S) and product (P) of quadratic roots without explicitly solving: S = -b/a, P = c/a",
+        latex: "x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 x_2 = \\frac{c}{a}",
+        template: "S = -b/a, P = c/a",
+        vars: [
+          { id: "a", label: "Coefficient a (a ≠ 0)", default: 2, type: "number" },
+          { id: "b", label: "Coefficient b", default: -8, type: "number" },
+          { id: "c", label: "Constant c", default: 6, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), b = parseFloat(v.b), c = parseFloat(v.c);
+          if (a === 0) return { error: "Coefficient a cannot be zero." };
+          const sum = -b / a, prod = c / a;
+          const cleanS = parseFloat(sum.toFixed(4)), cleanP = parseFloat(prod.toFixed(4));
+          const inter = [
             { title: "Sum of Roots", expression: `S = -\\frac{${b}}{${a}} = ${cleanS}`, note: "Negative quotient of linear and quadratic coefficients" },
             { title: "Product of Roots", expression: `P = \\frac{${c}}{${a}} = ${cleanP}`, note: "Quotient of constant and quadratic coefficients" }
-          ],
-          finalResult: `S = ${cleanS}, \\quad P = ${cleanP}`,
-          answer: `Sum = ${cleanS}, Product = ${cleanP}`,
-          steps: [
-            { title: "Step 1: Vieta's Theorem", expression: "S = -b/a, \\; P = c/a", note: "Root-coefficient symmetry relationships" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; b = ${b}, \\; c = ${c}`, note: "Polynomial coefficients" },
-            { title: "Step 3: Root Sum Evaluation", expression: `S = -(${b})/${a} = ${cleanS}`, note: "Sum of roots" },
-            { title: "Step 4: Root Product Evaluation", expression: `P = ${c}/${a} = ${cleanP}`, note: "Product of roots" },
-            { title: "Step 5: Final Result", expression: `S = ${cleanS}, \\; P = ${cleanP}`, note: "Vieta relationships confirmed" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_remainder",
-    category: "Theorems",
-    subCategory: "Algebra",
-    title: "Polynomial Remainder Theorem",
-    subtitle: "When polynomial P(x) is divided by (x - c), the remainder is strictly equal to P(c)",
-    latex: "P(x) = (x - c)Q(x) + R \\implies R = P(c)",
-    subFormulas: [
+          ];
+          return {
+            formulaStatement: { title: "Vieta's Theorem for Quadratics", latex: "x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 x_2 = \\frac{c}{a}" },
+            givenValues: `a = ${a}, \\quad b = ${b}, \\quad c = ${c}`,
+            substitution: `S = -\\frac{${b}}{${a}} = ${cleanS}, \\quad P = \\frac{${c}}{${a}} = ${cleanP}`,
+            intermediateSteps: inter,
+            finalResult: `S = ${cleanS}, \\quad P = ${cleanP}`,
+            answer: `Sum = ${cleanS}, Product = ${cleanP}`,
+            steps: [
+              { title: "Step 1: Vieta's Theorem", expression: "S = -b/a, \\; P = c/a", note: "Root-coefficient relationships" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `S = ${cleanS}, \\; P = ${cleanP}`, note: "Vieta relationships confirmed" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_remainder_calc",
-        title: "Polynomial Remainder Evaluation",
-        desc: "Evaluate remainder R of polynomial ax² + bx + d when divided by (x - c)",
-        latex: "R = P(c) = a c^2 + b c + d",
-        template: "a*c^2 + b*c + d",
-        vars: [{"id":"a","label":"Coefficient a","default":2,"type":"number"},{"id":"b","label":"Coefficient b","default":3,"type":"number"},{"id":"d","label":"Constant d","default":-5,"type":"number"},{"id":"c","label":"Root / Shift c (divisor x - c)","default":2,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), b = parseFloat(v.b), d = parseFloat(v.d), c = parseFloat(v.c);
-        const term1 = a * c * c, term2 = b * c;
-        const R = term1 + term2 + d;
-        const cleanR = parseFloat(R.toFixed(4));
-        const isFactor = Math.abs(cleanR) < 1e-6;
-        return {
-          formulaStatement: { title: "Polynomial Remainder Theorem", latex: "P(x) = (x - c)Q(x) + R \\implies R = P(c)" },
-          givenValues: `P(x) = ${a}x^2 + ${b}x + (${d}), \\quad c = ${c}`,
-          substitution: `R = P(${c}) = ${a}(${c})^2 + ${b}(${c}) + (${d})`,
-          intermediateSteps: [
-            { title: "Substitute c into Polynomial", expression: `${a}(${c*c}) + ${b*c} + (${d})`, note: "Direct evaluation at x = c" },
-            { title: "Calculate Remainder", expression: `${term1} + ${term2} + (${d}) = ${cleanR}`, note: isFactor ? "(x - c) is an exact FACTOR since remainder = 0" : "Non-zero remainder" }
-          ],
-          finalResult: `R = ${cleanR}${isFactor ? ' \\implies (x - c) \\text{ is a factor!}' : ''}`,
-          answer: `R = ${cleanR}`,
-          steps: [
-            { title: "Step 1: Remainder Theorem", expression: "R = P(c)", note: "Remainder upon division by linear binomial (x - c)" },
-            { title: "Step 2: Given Values", expression: `c = ${c}, \\; P(x) = ${a}x^2 + ${b}x + ${d}`, note: "Divisor parameter and polynomial" },
-            { title: "Step 3: Substitution", expression: `P(${c}) = ${a}(${c})^2 + ${b}(${c}) + ${d}`, note: "Substitute root value c" },
-            { title: "Step 4: Arithmetic", expression: `${term1} + ${term2} + ${d} = ${cleanR}`, note: "Perform sum" },
-            { title: "Step 5: Final Result", expression: `R = ${cleanR}`, note: isFactor ? "Exact factor confirmed" : "Remainder determined" }
-          ]
-        };
-      }
+        id: "thm_remainder_sub",
+        title: "3. Polynomial Remainder Theorem",
+        desc: "When polynomial P(x) is divided by (x - c), remainder equals P(c)",
+        latex: "P(x) = (x - c)Q(x) + R \\implies R = P(c)",
+        template: "P(c)",
+        vars: [
+          { id: "poly", label: "Polynomial P(x)", default: "2x^3 - 4x^2 + 3x - 5", type: "text" },
+          { id: "c", label: "Divisor root c in (x - c)", default: 2, type: "number" }
+        ],
+        compute(v) {
+          const polyStr = String(v.poly || '2x^3 - 4x^2 + 3x - 5').trim();
+          const c = parseFloat(v.c);
+          try {
+            const node = math.parse(polyStr);
+            const rem = node.evaluate({ x: c });
+            const cleanR = Number.isInteger(rem) ? rem : parseFloat(rem.toFixed(4));
+            const inter = [
+              { title: "Substitute x = c into P(x)", expression: `P(${c}) = ${cleanR}`, note: "Direct evaluation at root of divisor" },
+              { title: "Factor Theorem Check", expression: `R = ${cleanR} ${cleanR === 0 ? '= 0 \\implies (x - c) \\text{ is a factor}' : '\\neq 0 \\implies (x - c) \\text{ is not a factor}'}`, note: "Factor consequence" }
+            ];
+            return {
+              formulaStatement: { title: "Polynomial Remainder Theorem", latex: "R = P(c)" },
+              givenValues: `P(x) = ${polyStr}, \\quad c = ${c}`,
+              substitution: `P(${c}) = ${cleanR}`,
+              intermediateSteps: inter,
+              finalResult: `Remainder R = ${cleanR}`,
+              answer: `R = ${cleanR}`,
+              steps: [
+                { title: "Step 1: Formula Statement", expression: "R = P(c)", note: "Remainder theorem" },
+                ...inter,
+                { title: "Step 5: Final Result", expression: `R = ${cleanR}`, note: "Remainder evaluated" }
+              ]
+            };
+          } catch (e) {
+            return { error: "Unable to parse polynomial: " + e.message };
+          }
+        }
+      },
+      {
+        id: "thm_binomial_sub",
+        title: "4. Binomial Theorem Expansion",
+        desc: "Calculate combinations coefficient C(n, k) = n! / (k!(n - k)!) for (a + b)ⁿ",
+        latex: "(a + b)^n = \\sum_{k=0}^n \\binom{n}{k} a^{n-k} b^k, \\quad \\binom{n}{k} = \\frac{n!}{k!(n - k)!}",
+        template: "factorial(n)/(factorial(k)*factorial(n-k))",
+        vars: [
+          { id: "n", label: "Power / Total (n)", default: 5, type: "number" },
+          { id: "k", label: "Index / Selection (k)", default: 2, type: "number" }
+        ],
+        compute(v) {
+          const n = Math.round(parseFloat(v.n)), k = Math.round(parseFloat(v.k));
+          if (n < 0 || k < 0 || k > n) return { error: "Requirements: n ≥ 0, 0 ≤ k ≤ n." };
+          const fact = (m) => { let res = 1; for (let i = 2; i <= m; i++) res *= i; return res; };
+          const nFact = fact(n), kFact = fact(k), nkFact = fact(n - k);
+          const coeff = nFact / (kFact * nkFact);
+          const inter = [
+            { title: "Factorial Computations", expression: `${n}! = ${nFact}, \\quad ${k}! = ${kFact}, \\quad (${n}-${k})! = ${nkFact}`, note: "Factorial components" },
+            { title: "Quotient Evaluation", expression: `\\frac{${nFact}}{${kFact * nkFact}} = ${coeff}`, note: "Binomial coefficient" }
+          ];
+          return {
+            formulaStatement: { title: "Binomial Coefficient", latex: "\\binom{n}{k} = \\frac{n!}{k!(n - k)!}" },
+            givenValues: `n = ${n}, \\quad k = ${k}`,
+            substitution: `\\binom{${n}}{${k}} = \\frac{${n}!}{${k}!(${n} - ${k})!}`,
+            intermediateSteps: inter,
+            finalResult: `\\binom{${n}}{${k}} = ${coeff}`,
+            answer: `${coeff}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\binom{n}{k} = \\frac{n!}{k!(n-k)!}", note: "Combinations formula" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${coeff}`, note: "Binomial coefficient verified" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 3: TRIANGLE LAWS =================
   {
-    id: "thm_cosines",
+    id: "thm_group_triangle_laws",
     category: "Theorems",
     subCategory: "Geometry",
-    title: "Law of Cosines",
-    subtitle: "Generalized Pythagorean theorem relating any triangle side to its opposite angle: c² = a² + b² - 2ab cos(C)",
-    latex: "c^2 = a^2 + b^2 - 2ab\\cos(C) \\implies c = \\sqrt{a^2 + b^2 - 2ab\\cos(C)}",
+    title: "Triangle Laws & Metrics",
+    subtitle: "Law of Cosines, Law of Sines, Law of Tangents, and Heron's Formula",
+    latex: "c^2 = a^2+b^2-2ab\\cos C, \\quad \\frac{a}{\\sin A} = \\frac{b}{\\sin B}, \\quad A = \\sqrt{s(s-a)(s-b)(s-c)}",
     subFormulas: [
       {
-        id: "thm_cosines_calc",
-        title: "Opposite Side Calculator",
-        desc: "Find side c given adjacent sides a, b and included angle C (in degrees)",
-        latex: "c = \\sqrt{a^2 + b^2 - 2ab\\cos(C^\\circ)}",
+        id: "thm_cosines_sub",
+        title: "1. Law of Cosines",
+        desc: "Calculate unknown side c from sides a, b and included angle C (in degrees)",
+        latex: "c^2 = a^2 + b^2 - 2ab\\cos(C)",
         template: "sqrt(a^2 + b^2 - 2*a*b*cos(deg(C)))",
-        vars: [{"id":"a","label":"Side a","default":5,"type":"number"},{"id":"b","label":"Side b","default":7,"type":"number"},{"id":"C","label":"Included Angle C (°)","default":60,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), b = parseFloat(v.b), C = parseFloat(v.C);
-        if (a <= 0 || b <= 0 || C <= 0 || C >= 180) return { error: "Sides must be > 0 and 0° < Angle C < 180°." };
-        const rad = C * Math.PI / 180;
-        const cosC = Math.cos(rad);
-        const aSq = a * a, bSq = b * b;
-        const twoAbCos = 2 * a * b * cosC;
-        const cSq = aSq + bSq - twoAbCos;
-        const c = Math.sqrt(Math.max(0, cSq));
-        const cleanC = parseFloat(c.toFixed(4));
-        return {
-          formulaStatement: { title: "Law of Cosines", latex: "c^2 = a^2 + b^2 - 2ab\\cos(C)" },
-          givenValues: `a = ${a}, \\quad b = ${b}, \\quad C = ${C}^\\circ`,
-          substitution: `c^2 = ${a}^2 + ${b}^2 - 2(${a})(${b})\\cos(${C}^\\circ)`,
-          intermediateSteps: [
+        vars: [
+          { id: "a", label: "Side a", default: 5, type: "number" },
+          { id: "b", label: "Side b", default: 7, type: "number" },
+          { id: "C", label: "Included Angle C (°)", default: 60, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), b = parseFloat(v.b), C = parseFloat(v.C);
+          if (a <= 0 || b <= 0 || C <= 0 || C >= 180) return { error: "Sides must be > 0 and 0° < Angle C < 180°." };
+          const rad = C * Math.PI / 180;
+          const cosC = Math.cos(rad);
+          const aSq = a * a, bSq = b * b;
+          const twoAbCos = 2 * a * b * cosC;
+          const cSq = aSq + bSq - twoAbCos;
+          const c = Math.sqrt(Math.max(0, cSq));
+          const cleanC = parseFloat(c.toFixed(4));
+          const inter = [
             { title: "Evaluate Cosine & Squares", expression: `${aSq} + ${bSq} - 2(${a * b})(${parseFloat(cosC.toFixed(4))})`, note: "Angle cosine in radians" },
             { title: "Compute Difference", expression: `${aSq + bSq} - ${parseFloat(twoAbCos.toFixed(4))} = ${parseFloat(cSq.toFixed(4))}`, note: "c² value" },
             { title: "Square Root", expression: `c = \\sqrt{${parseFloat(cSq.toFixed(4))}} = ${cleanC}`, note: "Principal square root" }
-          ],
-          finalResult: `c = ${cleanC}`,
-          answer: `c = ${cleanC}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "c = \\sqrt{a^2 + b^2 - 2ab\\cos(C)}", note: "Law of cosines" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; b = ${b}, \\; C = ${C}^\\circ`, note: "Sides and included angle" },
-            { title: "Step 3: Substitution", expression: `c^2 = ${aSq} + ${bSq} - ${parseFloat(twoAbCos.toFixed(4))}`, note: "Substitute into equation" },
-            { title: "Step 4: Square Root", expression: `c = \\sqrt{${parseFloat(cSq.toFixed(4))}}`, note: "Take radical" },
-            { title: "Step 5: Final Result", expression: `c = ${cleanC}`, note: "Opposite side verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_sines",
-    category: "Theorems",
-    subCategory: "Geometry",
-    title: "Law of Sines",
-    subtitle: "Ratio of each side to the sine of its opposite angle is constant: a/sin(A) = b/sin(B)",
-    latex: "\\frac{a}{\\sin(A)} = \\frac{b}{\\sin(B)} = \\frac{c}{\\sin(C)} = 2R",
-    subFormulas: [
+          ];
+          return {
+            formulaStatement: { title: "Law of Cosines", latex: "c^2 = a^2 + b^2 - 2ab\\cos(C)" },
+            givenValues: `a = ${a}, \\quad b = ${b}, \\quad C = ${C}^\\circ`,
+            substitution: `c^2 = ${a}^2 + ${b}^2 - 2(${a})(${b})\\cos(${C}^\\circ)`,
+            intermediateSteps: inter,
+            finalResult: `c = ${cleanC}`,
+            answer: `c = ${cleanC}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "c = \\sqrt{a^2 + b^2 - 2ab\\cos(C)}", note: "Law of cosines" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `c = ${cleanC}`, note: "Opposite side verified" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_sines_calc",
-        title: "Unknown Side Solver (AAS / ASA)",
+        id: "thm_sines_sub",
+        title: "2. Law of Sines",
         desc: "Calculate side b given side a and opposite angles A and B (in degrees)",
-        latex: "b = \\frac{a \\cdot \\sin(B^\\circ)}{\\sin(A^\\circ)}",
+        latex: "\\frac{a}{\\sin(A)} = \\frac{b}{\\sin(B)} \\implies b = \\frac{a \\cdot \\sin(B^\\circ)}{\\sin(A^\\circ)}",
         template: "(a * sin(deg(B))) / sin(deg(A))",
-        vars: [{"id":"a","label":"Side a","default":10,"type":"number"},{"id":"A","label":"Opposite Angle A (°)","default":30,"type":"number"},{"id":"B","label":"Angle B (°)","default":45,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), A = parseFloat(v.A), B = parseFloat(v.B);
-        if (a <= 0 || A <= 0 || B <= 0 || A + B >= 180) return { error: "Angles must be positive with A + B < 180°." };
-        const radA = A * Math.PI / 180, radB = B * Math.PI / 180;
-        const sinA = Math.sin(radA), sinB = Math.sin(radB);
-        const b = (a * sinB) / sinA;
-        const cleanB = parseFloat(b.toFixed(4));
-        return {
-          formulaStatement: { title: "Law of Sines", latex: "\\frac{a}{\\sin(A)} = \\frac{b}{\\sin(B)} \\implies b = \\frac{a \\sin(B)}{\\sin(A)}" },
-          givenValues: `a = ${a}, \\quad A = ${A}^\\circ, \\quad B = ${B}^\\circ`,
-          substitution: `b = \\frac{${a} \\times \\sin(${B}^\\circ)}{\\sin(${A}^\\circ)} = \\frac{${a} \\times ${parseFloat(sinB.toFixed(4))}}{${parseFloat(sinA.toFixed(4))}}`,
-          intermediateSteps: [
-            { title: "Evaluate Sines", expression: `\\sin(${A}^\\circ) = ${parseFloat(sinA.toFixed(4))}, \\quad \\sin(${B}^\\circ) = ${parseFloat(sinB.toFixed(4))}`, note: "Trigonometric evaluation" },
+        vars: [
+          { id: "a", label: "Side a", default: 10, type: "number" },
+          { id: "A", label: "Opposite Angle A (°)", default: 30, type: "number" },
+          { id: "B", label: "Angle B (°)", default: 45, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), A = parseFloat(v.A), B = parseFloat(v.B);
+          if (a <= 0 || A <= 0 || B <= 0 || A + B >= 180) return { error: "Angles must be positive with A + B < 180°." };
+          const radA = A * Math.PI / 180, radB = B * Math.PI / 180;
+          const sinA = Math.sin(radA), sinB = Math.sin(radB);
+          const b = (a * sinB) / sinA;
+          const cleanB = parseFloat(b.toFixed(4));
+          const inter = [
+            { title: "Evaluate Sines", expression: `\\sin(${A}^\\circ) = ${parseFloat(sinA.toFixed(4))}, \\quad \\sin(${B}^\\circ) = ${parseFloat(sinB.toFixed(4))}`, note: "Trigonometric ratios" },
             { title: "Cross-Multiplication Quotient", expression: `\\frac{${parseFloat((a * sinB).toFixed(4))}}{${parseFloat(sinA.toFixed(4))}} = ${cleanB}`, note: "Solve for unknown side" }
-          ],
-          finalResult: `b = ${cleanB}`,
-          answer: `b = ${cleanB}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "b = \\frac{a \\sin(B)}{\\sin(A)}", note: "Law of sines proportionality" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; A = ${A}^\\circ, \\; B = ${B}^\\circ`, note: "Known side and angles" },
-            { title: "Step 3: Sine Values", expression: `\\sin(${A}^\\circ) = ${parseFloat(sinA.toFixed(4))}, \\; \\sin(${B}^\\circ) = ${parseFloat(sinB.toFixed(4))}`, note: "Angle sines" },
-            { title: "Step 4: Division", expression: `b = ${cleanB}`, note: "Compute quotient" },
-            { title: "Step 5: Final Result", expression: `b = ${cleanB}`, note: "Proportional side determined" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_heron",
-    category: "Theorems",
-    subCategory: "Geometry",
-    title: "Heron's Formula",
-    subtitle: "Area of any triangle from its three side lengths without requiring height or angles",
-    latex: "A = \\sqrt{s(s - a)(s - b)(s - c)}, \\quad s = \\frac{a + b + c}{2}",
-    subFormulas: [
+          ];
+          return {
+            formulaStatement: { title: "Law of Sines", latex: "\\frac{a}{\\sin(A)} = \\frac{b}{\\sin(B)}" },
+            givenValues: `a = ${a}, \\quad A = ${A}^\\circ, \\quad B = ${B}^\\circ`,
+            substitution: `b = \\frac{${a} \\times \\sin(${B}^\\circ)}{\\sin(${A}^\\circ)}`,
+            intermediateSteps: inter,
+            finalResult: `b = ${cleanB}`,
+            answer: `b = ${cleanB}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "b = \\frac{a \\sin(B)}{\\sin(A)}", note: "Law of sines proportionality" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `b = ${cleanB}`, note: "Side b determined" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_heron_calc",
-        title: "Triangle Area from 3 Sides",
-        desc: "Calculate triangle area directly from side lengths a, b, and c",
-        latex: "A = \\sqrt{s(s - a)(s - b)(s - c)}",
+        id: "thm_tangents_sub",
+        title: "3. Law of Tangents",
+        desc: "Relation between side differences/sums and half-angle tangent ratios",
+        latex: "\\frac{a - b}{a + b} = \\frac{\\tan\\left(\\frac{A - B}{2}\\right)}{\\tan\\left(\\frac{A + B}{2}\\right)}",
+        template: "(a - b) / (a + b)",
+        vars: [
+          { id: "a", label: "Side a", default: 8, type: "number" },
+          { id: "b", label: "Side b", default: 5, type: "number" },
+          { id: "A", label: "Angle A (°)", default: 75, type: "number" },
+          { id: "B", label: "Angle B (°)", default: 45, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), b = parseFloat(v.b), A = parseFloat(v.A), B = parseFloat(v.B);
+          if (a + b === 0) return { error: "a + b cannot be 0." };
+          const sideRatio = (a - b) / (a + b);
+          const halfDiff = (A - B) / 2 * Math.PI / 180;
+          const halfSum = (A + B) / 2 * Math.PI / 180;
+          const tanDiff = Math.tan(halfDiff), tanSum = Math.tan(halfSum);
+          const tanRatio = tanDiff / tanSum;
+          const cleanSide = parseFloat(sideRatio.toFixed(4)), cleanTan = parseFloat(tanRatio.toFixed(4));
+          const inter = [
+            { title: "Side Ratio LHS", expression: `\\frac{${a} - ${b}}{${a} + ${b}} = ${cleanSide}`, note: "Side difference over sum" },
+            { title: "Tangent Ratio RHS", expression: `\\frac{\\tan(${(A - B) / 2}^\\circ)}{\\tan(${(A + B) / 2}^\\circ)} = ${cleanTan}`, note: "Half-angle tangent ratio" }
+          ];
+          return {
+            formulaStatement: { title: "Law of Tangents", latex: "\\frac{a - b}{a + b} = \\frac{\\tan((A - B)/2)}{\\tan((A + B)/2)}" },
+            givenValues: `a = ${a}, \\; b = ${b}, \\; A = ${A}^\\circ, \\; B = ${B}^\\circ`,
+            substitution: `\\text{Ratio} = ${cleanSide}`,
+            intermediateSteps: inter,
+            finalResult: `\\text{Ratio} = ${cleanSide}`,
+            answer: `${cleanSide}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\frac{a-b}{a+b} = \\frac{\\tan((A-B)/2)}{\\tan((A+B)/2)}", note: "Law of tangents" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${cleanSide}`, note: "Tangents law verified" }
+            ]
+          };
+        }
+      },
+      {
+        id: "thm_heron_sub",
+        title: "4. Heron's Formula (Area from 3 Sides)",
+        desc: "Triangle area directly from side lengths a, b, c without requiring altitude",
+        latex: "A = \\sqrt{s(s - a)(s - b)(s - c)}, \\quad s = \\frac{a + b + c}{2}",
         template: "sqrt(((a+b+c)/2)*(((a+b+c)/2)-a)*(((a+b+c)/2)-b)*(((a+b+c)/2)-c))",
-        vars: [{"id":"a","label":"Side a","default":7,"type":"number"},{"id":"b","label":"Side b","default":8,"type":"number"},{"id":"c","label":"Side c","default":9,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), b = parseFloat(v.b), c = parseFloat(v.c);
-        if (a <= 0 || b <= 0 || c <= 0) return { error: "Side lengths must be positive." };
-        if (a + b <= c || a + c <= b || b + c <= a) return { error: "Triangle inequality violated (sum of any two sides must exceed the third)." };
-        const s = (a + b + c) / 2;
-        const sa = s - a, sb = s - b, sc = s - c;
-        const radicand = s * sa * sb * sc;
-        const area = Math.sqrt(radicand);
-        const cleanA = parseFloat(area.toFixed(4));
-        return {
-          formulaStatement: { title: "Heron's Formula", latex: "A = \\sqrt{s(s-a)(s-b)(s-c)}, \\quad s = \\frac{a+b+c}{2}" },
-          givenValues: `a = ${a}, \\quad b = ${b}, \\quad c = ${c}`,
-          substitution: `s = \\frac{${a} + ${b} + ${c}}{2} = ${s}, \\quad A = \\sqrt{${s}(${s}-${a})(${s}-${b})(${s}-${c})}`,
-          intermediateSteps: [
-            { title: "Calculate Semi-Perimeter (s)", expression: `s = \\frac{${a + b + c}}{2} = ${s}`, note: "Half sum of sides" },
-            { title: "Compute Factors", expression: `(s-a) = ${sa}, \\; (s-b) = ${sb}, \\; (s-c) = ${sc}`, note: "Semi-perimeter differences" },
-            { title: "Radicand Product", expression: `${s} \\times ${sa} \\times ${sb} \\times ${sc} = ${radicand}`, note: "Product of 4 factors" },
-            { title: "Square Root", expression: `A = \\sqrt{${radicand}} = ${cleanA}`, note: "Exact area in square units" }
-          ],
-          finalResult: `A = ${cleanA} \\text{ sq units}`,
-          answer: `${cleanA}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "A = \\sqrt{s(s-a)(s-b)(s-c)}", note: "Heron's triangle area formula" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; b = ${b}, \\; c = ${c}`, note: "All three triangle sides" },
-            { title: "Step 3: Semi-Perimeter", expression: `s = (${a}+${b}+${c})/2 = ${s}`, note: "Calculate semiperimeter" },
-            { title: "Step 4: Radical Product", expression: `A = \\sqrt{${radicand}}`, note: "Product under square root" },
-            { title: "Step 5: Final Result", expression: `A = ${cleanA}`, note: "Area evaluated" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_euler_polyhedron",
-    category: "Theorems",
-    subCategory: "Geometry",
-    title: "Euler's Polyhedral Formula",
-    subtitle: "Topological invariant relating vertices, edges, and faces of convex polyhedra: V - E + F = 2",
-    latex: "V - E + F = 2 \\implies E = V + F - 2",
-    subFormulas: [
-      {
-        id: "thm_euler_polyhedron_calc",
-        title: "Edges from Vertices and Faces",
-        desc: "Calculate total number of edges E given vertex count V and face count F",
-        latex: "E = V + F - 2",
-        template: "V + F - 2",
-        vars: [{"id":"V","label":"Vertices (V)","default":8,"type":"number"},{"id":"F","label":"Faces (F)","default":6,"type":"number"}],
-        compute: (v) => {
-        const V = Math.round(parseFloat(v.V)), F = Math.round(parseFloat(v.F));
-        if (V < 4 || F < 4) return { error: "A polyhedron must have at least 4 vertices and 4 faces." };
-        const E = V + F - 2;
-        return {
-          formulaStatement: { title: "Euler's Polyhedral Characteristic", latex: "V - E + F = 2 \\implies E = V + F - 2" },
-          givenValues: `V = ${V}, \\quad F = ${F}`,
-          substitution: `E = ${V} + ${F} - 2 = ${E}`,
-          intermediateSteps: [
-            { title: "Sum Vertices and Faces", expression: `V + F = ${V} + ${F} = ${V + F}`, note: "Total 0-dimensional and 2-dimensional elements" },
-            { title: "Subtract Euler Characteristic (2)", expression: `${V + F} - 2 = ${E}`, note: "Number of 1-dimensional edges E" }
-          ],
-          finalResult: `E = ${E} \\text{ edges}`,
-          answer: `${E}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "V - E + F = 2", note: "Euler's topological formula" },
-            { title: "Step 2: Given Values", expression: `V = ${V}, \\; F = ${F}`, note: "Vertices and faces" },
-            { title: "Step 3: Isolate Edges", expression: "E = V + F - 2", note: "Rearrange for edges" },
-            { title: "Step 4: Substitution", expression: `E = ${V} + ${F} - 2 = ${E}`, note: "Perform arithmetic" },
-            { title: "Step 5: Final Result", expression: `E = ${E}`, note: "Edge count verified" }
-          ]
-        };
-      }
+        vars: [
+          { id: "a", label: "Side a", default: 7, type: "number" },
+          { id: "b", label: "Side b", default: 8, type: "number" },
+          { id: "c", label: "Side c", default: 9, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), b = parseFloat(v.b), c = parseFloat(v.c);
+          if (a <= 0 || b <= 0 || c <= 0) return { error: "Side lengths must be positive." };
+          if (a + b <= c || a + c <= b || b + c <= a) return { error: "Triangle inequality violated." };
+          const s = (a + b + c) / 2;
+          const sa = s - a, sb = s - b, sc = s - c;
+          const radicand = s * sa * sb * sc;
+          const area = Math.sqrt(radicand);
+          const cleanA = parseFloat(area.toFixed(4));
+          const inter = [
+            { title: "Calculate Semi-Perimeter (s)", expression: `s = \\frac{${a + b + c}}{2} = ${s}`, note: "Half perimeter" },
+            { title: "Compute Radicand Product", expression: `${s} \\times ${sa} \\times ${sb} \\times ${sc} = ${radicand}`, note: "Product of 4 factors" },
+            { title: "Square Root", expression: `A = \\sqrt{${radicand}} = ${cleanA}`, note: "Area in square units" }
+          ];
+          return {
+            formulaStatement: { title: "Heron's Formula", latex: "A = \\sqrt{s(s-a)(s-b)(s-c)}" },
+            givenValues: `a = ${a}, \\quad b = ${b}, \\quad c = ${c}`,
+            substitution: `s = ${s}, \\quad A = \\sqrt{${s}(${s}-${a})(${s}-${b})(${s}-${c})}`,
+            intermediateSteps: inter,
+            finalResult: `A = ${cleanA} \\text{ sq units}`,
+            answer: `${cleanA}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "A = \\sqrt{s(s-a)(s-b)(s-c)}", note: "Heron's formula" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `A = ${cleanA}`, note: "Area evaluated" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 4: TRIGONOMETRIC IDENTITIES =================
   {
-    id: "thm_pythagorean_trig",
+    id: "thm_group_trig_identities",
     category: "Theorems",
     subCategory: "Trigonometry",
-    title: "Fundamental Pythagorean Trig Identity",
-    subtitle: "The cornerstone unit-circle identity relating sine and cosine: sin²(θ) + cos²(θ) = 1",
-    latex: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1 \\implies \\cos(\\theta) = \\pm\\sqrt{1 - \\sin^2(\\theta)}",
+    title: "Trigonometric Identities",
+    subtitle: "Pythagorean Trig Identity, Double-Angle Identities, and Compound Angle Addition",
+    latex: "\\sin^2\\theta + \\cos^2\\theta = 1, \\quad \\sin(2\\theta) = 2\\sin\\theta\\cos\\theta, \\quad \\sin(\\alpha+\\beta) = \\sin\\alpha\\cos\\beta+\\cos\\alpha\\sin\\beta",
     subFormulas: [
       {
-        id: "thm_pythagorean_trig_calc",
-        title: "Cosine from Sine",
-        desc: "Calculate cos(θ) given sin(θ)",
-        latex: "\\cos(\\theta) = \\sqrt{1 - \\sin^2(\\theta)}",
+        id: "thm_pyth_trig_sub",
+        title: "1. Fundamental Pythagorean Identity",
+        desc: "Unit-circle identity: calculate cos(θ) given sin(θ)",
+        latex: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1 \\implies \\cos(\\theta) = \\pm\\sqrt{1 - \\sin^2(\\theta)}",
         template: "sqrt(1 - sinVal^2)",
-        vars: [{"id":"sinVal","label":"sin(θ) value (-1 to 1)","default":0.6,"type":"number"}],
-        compute: (v) => {
-        const s = parseFloat(v.sinVal);
-        if (Math.abs(s) > 1) return { error: "Magnitude of sin(θ) cannot exceed 1." };
-        const sSq = s * s;
-        const cSq = 1 - sSq;
-        const c = Math.sqrt(Math.max(0, cSq));
-        const cleanC = parseFloat(c.toFixed(4));
-        return {
-          formulaStatement: { title: "Pythagorean Trigonometric Identity", latex: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1" },
-          givenValues: `\\sin(\\theta) = ${s}`,
-          substitution: `\\cos(\\theta) = \\pm\\sqrt{1 - (${s})^2} = \\pm\\sqrt{1 - ${parseFloat(sSq.toFixed(4))}}`,
-          intermediateSteps: [
+        vars: [
+          { id: "sinVal", label: "sin(θ) value (-1 to 1)", default: 0.6, type: "number" }
+        ],
+        compute(v) {
+          const s = parseFloat(v.sinVal);
+          if (Math.abs(s) > 1) return { error: "Magnitude of sin(θ) cannot exceed 1." };
+          const sSq = s * s, cSq = 1 - sSq, c = Math.sqrt(Math.max(0, cSq));
+          const cleanC = parseFloat(c.toFixed(4));
+          const inter = [
             { title: "Square Sine Value", expression: `(${s})^2 = ${parseFloat(sSq.toFixed(4))}`, note: "sin²(θ)" },
             { title: "Subtract from 1", expression: `1 - ${parseFloat(sSq.toFixed(4))} = ${parseFloat(cSq.toFixed(4))}`, note: "cos²(θ)" },
-            { title: "Square Root", expression: `\\cos(\\theta) = \\pm ${cleanC}`, note: "Magnitude of cosine" }
-          ],
-          finalResult: `\\cos(\\theta) = \\pm ${cleanC}`,
-          answer: `±${cleanC}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\cos(\\theta) = \\sqrt{1 - \\sin^2(\\theta)}", note: "Unit circle relation" },
-            { title: "Step 2: Given Values", expression: `\\sin(\\theta) = ${s}`, note: "Sine ratio" },
-            { title: "Step 3: Substitution", expression: `\\cos(\\theta) = \\sqrt{1 - ${s}^2}`, note: "Substitute into equation" },
-            { title: "Step 4: Radical Value", expression: `\\sqrt{${parseFloat(cSq.toFixed(4))}} = ${cleanC}`, note: "Compute radical" },
-            { title: "Step 5: Final Result", expression: `\\cos(\\theta) = \\pm ${cleanC}`, note: "Cosine evaluated" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_double_angle",
-    category: "Theorems",
-    subCategory: "Trigonometry",
-    title: "Double-Angle Identities",
-    subtitle: "Formulas expressing trig functions of twice an angle: sin(2θ) = 2sin(θ)cos(θ)",
-    latex: "\\sin(2\\theta) = 2\\sin(\\theta)\\cos(\\theta), \\quad \\cos(2\\theta) = \\cos^2(\\theta) - \\sin^2(\\theta)",
-    subFormulas: [
+            { title: "Square Root", expression: `\\cos(\\theta) = \\pm ${cleanC}`, note: "Cosine magnitude" }
+          ];
+          return {
+            formulaStatement: { title: "Pythagorean Trigonometric Identity", latex: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1" },
+            givenValues: `\\sin(\\theta) = ${s}`,
+            substitution: `\\cos(\\theta) = \\pm\\sqrt{1 - (${s})^2}`,
+            intermediateSteps: inter,
+            finalResult: `\\cos(\\theta) = \\pm ${cleanC}`,
+            answer: `±${cleanC}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\cos(\\theta) = \\sqrt{1 - \\sin^2(\\theta)}", note: "Pythagorean trig identity" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `\\cos(\\theta) = \\pm ${cleanC}`, note: "Cosine evaluated" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_double_angle_calc",
-        title: "Double Angle Sine and Cosine",
+        id: "thm_double_angle_sub",
+        title: "2. Double-Angle Identities",
         desc: "Calculate sin(2θ) and cos(2θ) for angle θ in degrees",
-        latex: "\\sin(2\\theta) = 2\\sin(\\theta)\\cos(\\theta), \\quad \\cos(2\\theta) = 2\\cos^2(\\theta) - 1",
+        latex: "\\sin(2\\theta) = 2\\sin(\\theta)\\cos(\\theta), \\quad \\cos(2\\theta) = \\cos^2(\\theta) - \\sin^2(\\theta)",
         template: "2*sin(deg(theta))*cos(deg(theta))",
-        vars: [{"id":"theta","label":"Angle θ (°)","default":30,"type":"number"}],
-        compute: (v) => {
-        const th = parseFloat(v.theta);
-        const rad = th * Math.PI / 180;
-        const sinTh = Math.sin(rad), cosTh = Math.cos(rad);
-        const sin2Th = 2 * sinTh * cosTh;
-        const cos2Th = cosTh * cosTh - sinTh * sinTh;
-        const cleanSin = parseFloat(sin2Th.toFixed(4)), cleanCos = parseFloat(cos2Th.toFixed(4));
-        return {
-          formulaStatement: { title: "Double-Angle Formulas", latex: "\\sin(2\\theta) = 2\\sin\\theta\\cos\\theta, \\quad \\cos(2\\theta) = \\cos^2\\theta - \\sin^2\\theta" },
-          givenValues: `\\theta = ${th}^\\circ \\implies 2\\theta = ${th * 2}^\\circ`,
-          substitution: `\\sin(2 \\cdot ${th}^\\circ) = 2(${parseFloat(sinTh.toFixed(4))})(${parseFloat(cosTh.toFixed(4))})`,
-          intermediateSteps: [
-            { title: "Evaluate Single Angle Components", expression: `\\sin(${th}^\\circ) = ${parseFloat(sinTh.toFixed(4))}, \\quad \\cos(${th}^\\circ) = ${parseFloat(cosTh.toFixed(4))}`, note: "Angle functions" },
-            { title: "Calculate sin(2θ)", expression: `2 \\times ${parseFloat(sinTh.toFixed(4))} \\times ${parseFloat(cosTh.toFixed(4))} = ${cleanSin}`, note: "Double angle sine" },
-            { title: "Calculate cos(2θ)", expression: `(${parseFloat(cosTh.toFixed(4))})^2 - (${parseFloat(sinTh.toFixed(4))})^2 = ${cleanCos}`, note: "Double angle cosine" }
-          ],
-          finalResult: `\\sin(${th*2}^\\circ) = ${cleanSin}, \\quad \\cos(${th*2}^\\circ) = ${cleanCos}`,
-          answer: `sin(2θ) = ${cleanSin}, cos(2θ) = ${cleanCos}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\sin(2\\theta) = 2\\sin\\theta\\cos\\theta", note: "Double angle identity" },
-            { title: "Step 2: Given Values", expression: `\\theta = ${th}^\\circ`, note: "Input angle" },
-            { title: "Step 3: Component Values", expression: `\\sin = ${parseFloat(sinTh.toFixed(4))}, \\; \\cos = ${parseFloat(cosTh.toFixed(4))}`, note: "Evaluate trig ratios" },
-            { title: "Step 4: Multiplication", expression: `2 \\times ${parseFloat(sinTh.toFixed(4))} \\times ${parseFloat(cosTh.toFixed(4))} = ${cleanSin}`, note: "Compute product" },
-            { title: "Step 5: Final Result", expression: `\\sin(2\\theta) = ${cleanSin}, \\; \\cos(2\\theta) = ${cleanCos}`, note: "Double angles verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_angle_sum",
-    category: "Theorems",
-    subCategory: "Trigonometry",
-    title: "Angle Addition Theorem",
-    subtitle: "Compound angle identities: sin(α + β) = sin(α)cos(β) + cos(α)sin(β)",
-    latex: "\\sin(\\alpha + \\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta",
-    subFormulas: [
+        vars: [
+          { id: "theta", label: "Angle θ (°)", default: 30, type: "number" }
+        ],
+        compute(v) {
+          const th = parseFloat(v.theta);
+          const rad = th * Math.PI / 180;
+          const sinTh = Math.sin(rad), cosTh = Math.cos(rad);
+          const sin2Th = 2 * sinTh * cosTh;
+          const cos2Th = cosTh * cosTh - sinTh * sinTh;
+          const cleanSin = parseFloat(sin2Th.toFixed(4)), cleanCos = parseFloat(cos2Th.toFixed(4));
+          const inter = [
+            { title: "Single Angle Ratios", expression: `\\sin(${th}^\\circ) = ${parseFloat(sinTh.toFixed(4))}, \\; \\cos(${th}^\\circ) = ${parseFloat(cosTh.toFixed(4))}`, note: "Angle components" },
+            { title: "sin(2θ)", expression: `2(${parseFloat(sinTh.toFixed(4))})(${parseFloat(cosTh.toFixed(4))}) = ${cleanSin}`, note: "Double angle sine" },
+            { title: "cos(2θ)", expression: `(${parseFloat(cosTh.toFixed(4))})^2 - (${parseFloat(sinTh.toFixed(4))})^2 = ${cleanCos}`, note: "Double angle cosine" }
+          ];
+          return {
+            formulaStatement: { title: "Double-Angle Formulas", latex: "\\sin(2\\theta) = 2\\sin\\theta\\cos\\theta, \\quad \\cos(2\\theta) = \\cos^2\\theta - \\sin^2\\theta" },
+            givenValues: `\\theta = ${th}^\\circ`,
+            substitution: `\\sin(${th * 2}^\\circ) = ${cleanSin}, \\; \\cos(${th * 2}^\\circ) = ${cleanCos}`,
+            intermediateSteps: inter,
+            finalResult: `\\sin(${th*2}^\\circ) = ${cleanSin}, \\; \\cos(${th*2}^\\circ) = ${cleanCos}`,
+            answer: `sin(2θ) = ${cleanSin}, cos(2θ) = ${cleanCos}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\sin(2\\theta) = 2\\sin\\theta\\cos\\theta", note: "Double-angle identity" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `\\sin(2\\theta) = ${cleanSin}, \\; \\cos(2\\theta) = ${cleanCos}`, note: "Double angles confirmed" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_angle_sum_calc",
-        title: "Sine Compound Angle",
+        id: "thm_angle_addition_sub",
+        title: "3. Compound Angle Addition",
         desc: "Calculate sin(α + β) given angles α and β in degrees",
         latex: "\\sin(\\alpha + \\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta",
         template: "sin(deg(alpha))*cos(deg(beta)) + cos(deg(alpha))*sin(deg(beta))",
-        vars: [{"id":"alpha","label":"Angle α (°)","default":45,"type":"number"},{"id":"beta","label":"Angle β (°)","default":30,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.alpha), b = parseFloat(v.beta);
-        const radA = a * Math.PI / 180, radB = b * Math.PI / 180;
-        const sa = Math.sin(radA), ca = Math.cos(radA);
-        const sb = Math.sin(radB), cb = Math.cos(radB);
-        const res = sa * cb + ca * sb;
-        const clean = parseFloat(res.toFixed(4));
-        return {
-          formulaStatement: { title: "Angle Addition Theorem", latex: "\\sin(\\alpha + \\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta" },
-          givenValues: `\\alpha = ${a}^\\circ, \\quad \\beta = ${b}^\\circ \\implies \\alpha + \\beta = ${a + b}^\\circ`,
-          substitution: `\\sin(${a}^\\circ + ${b}^\\circ) = (${parseFloat(sa.toFixed(4))})(${parseFloat(cb.toFixed(4))}) + (${parseFloat(ca.toFixed(4))})(${parseFloat(sb.toFixed(4))})`,
-          intermediateSteps: [
-            { title: "Evaluate Trig Components", expression: `\\sin(${a}^\\circ) = ${parseFloat(sa.toFixed(4))}, \\; \\cos(${b}^\\circ) = ${parseFloat(cb.toFixed(4))}`, note: "First term product" },
-            { title: "Evaluate Second Term", expression: `\\cos(${a}^\\circ) = ${parseFloat(ca.toFixed(4))}, \\; \\sin(${b}^\\circ) = ${parseFloat(sb.toFixed(4))}`, note: "Second term product" },
-            { title: "Sum of Products", expression: `${parseFloat((sa * cb).toFixed(4))} + ${parseFloat((ca * sb).toFixed(4))} = ${clean}`, note: "Compound angle evaluated" }
-          ],
-          finalResult: `\\sin(${a + b}^\\circ) = ${clean}`,
-          answer: `${clean}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\sin(\\alpha + \\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta", note: "Compound angle formula" },
-            { title: "Step 2: Given Values", expression: `\\alpha = ${a}^\\circ, \\; \\beta = ${b}^\\circ`, note: "Constituent angles" },
-            { title: "Step 3: Component Substitution", expression: `${parseFloat((sa*cb).toFixed(4))} + ${parseFloat((ca*sb).toFixed(4))}`, note: "Cross products" },
-            { title: "Step 4: Summation", expression: `${clean}`, note: "Add products" },
-            { title: "Step 5: Final Result", expression: `\\sin(${a+b}^\\circ) = ${clean}`, note: "Addition identity confirmed" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_tangents",
-    category: "Theorems",
-    subCategory: "Trigonometry",
-    title: "Law of Tangents",
-    subtitle: "Relation between differences and sums of sides and tangents of half differences and sums of angles",
-    latex: "\\frac{a - b}{a + b} = \\frac{\\tan\\left(\\frac{A - B}{2}\\right)}{\\tan\\left(\\frac{A + B}{2}\\right)}",
-    subFormulas: [
-      {
-        id: "thm_tangents_calc",
-        title: "Law of Tangents Proportionality",
-        desc: "Verify equality of side ratio (a - b)/(a + b) with tangent ratio for angles A, B",
-        latex: "\\frac{a - b}{a + b} = \\frac{\\tan(\\frac{A - B}{2})}{\\tan(\\frac{A + B}{2})}",
-        template: "(a - b) / (a + b)",
-        vars: [{"id":"a","label":"Side a","default":8,"type":"number"},{"id":"b","label":"Side b","default":5,"type":"number"},{"id":"A","label":"Angle A (°)","default":75,"type":"number"},{"id":"B","label":"Angle B (°)","default":45,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), b = parseFloat(v.b), A = parseFloat(v.A), B = parseFloat(v.B);
-        if (a + b === 0) return { error: "a + b cannot be 0." };
-        const sideRatio = (a - b) / (a + b);
-        const halfDiff = (A - B) / 2 * Math.PI / 180;
-        const halfSum = (A + B) / 2 * Math.PI / 180;
-        const tanDiff = Math.tan(halfDiff), tanSum = Math.tan(halfSum);
-        const tanRatio = tanDiff / tanSum;
-        const cleanSide = parseFloat(sideRatio.toFixed(4)), cleanTan = parseFloat(tanRatio.toFixed(4));
-        return {
-          formulaStatement: { title: "Law of Tangents", latex: "\\frac{a - b}{a + b} = \\frac{\\tan\\left(\\frac{A - B}{2}\\right)}{\\tan\\left(\\frac{A + B}{2}\\right)}" },
-          givenValues: `a = ${a}, \\; b = ${b}, \\; A = ${A}^\\circ, \\; B = ${B}^\\circ`,
-          substitution: `\\frac{${a} - ${b}}{${a} + ${b}} = \\frac{${a - b}}{${a + b}} = ${cleanSide}`,
-          intermediateSteps: [
-            { title: "Side Ratio LHS", expression: `\\frac{${a} - ${b}}{${a} + ${b}} = \\frac{${a - b}}{${a + b}} = ${cleanSide}`, note: "Quotient of side difference and sum" },
-            { title: "Half Angle Differences & Sums", expression: `\\frac{A - B}{2} = ${(A - B) / 2}^\\circ, \\quad \\frac{A + B}{2} = ${(A + B) / 2}^\\circ`, note: "Compute half angles" },
-            { title: "Tangent Ratio RHS", expression: `\\frac{\\tan(${(A - B) / 2}^\\circ)}{\\tan(${(A + B) / 2}^\\circ)} = \\frac{${parseFloat(tanDiff.toFixed(4))}}{${parseFloat(tanSum.toFixed(4))}} = ${cleanTan}`, note: "Law of tangents holds" }
-          ],
-          finalResult: `\\text{Ratio} = ${cleanSide}`,
-          answer: `${cleanSide}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\frac{a-b}{a+b} = \\frac{\\tan((A-B)/2)}{\\tan((A+B)/2)}", note: "Law of tangents" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; b = ${b}, \\; A = ${A}^\\circ, \\; B = ${B}^\\circ`, note: "Sides and angles" },
-            { title: "Step 3: Side Ratio", expression: `(${a}-${b})/(${a}+${b}) = ${cleanSide}`, note: "LHS evaluated" },
-            { title: "Step 4: Tangent Ratio", expression: `\\tan(${(A-B)/2}^\\circ)/\\tan(${(A+B)/2}^\\circ) = ${cleanTan}`, note: "RHS evaluated" },
-            { title: "Step 5: Final Result", expression: `${cleanSide}`, note: "Tangents law verified" }
-          ]
-        };
-      }
+        vars: [
+          { id: "alpha", label: "Angle α (°)", default: 45, type: "number" },
+          { id: "beta", label: "Angle β (°)", default: 30, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.alpha), b = parseFloat(v.beta);
+          const radA = a * Math.PI / 180, radB = b * Math.PI / 180;
+          const sa = Math.sin(radA), ca = Math.cos(radA);
+          const sb = Math.sin(radB), cb = Math.cos(radB);
+          const res = sa * cb + ca * sb;
+          const clean = parseFloat(res.toFixed(4));
+          const inter = [
+            { title: "Evaluate Terms", expression: `(${parseFloat(sa.toFixed(4))})(${parseFloat(cb.toFixed(4))}) + (${parseFloat(ca.toFixed(4))})(${parseFloat(sb.toFixed(4))})`, note: "Cross products" },
+            { title: "Sum of Products", expression: `${clean}`, note: "Compound sine value" }
+          ];
+          return {
+            formulaStatement: { title: "Angle Addition Theorem", latex: "\\sin(\\alpha + \\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta" },
+            givenValues: `\\alpha = ${a}^\\circ, \\quad \\beta = ${b}^\\circ`,
+            substitution: `\\sin(${a + b}^\\circ) = ${clean}`,
+            intermediateSteps: inter,
+            finalResult: `\\sin(${a + b}^\\circ) = ${clean}`,
+            answer: `${clean}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\sin(\\alpha + \\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta", note: "Angle addition theorem" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `\\sin(${a+b}^\\circ) = ${clean}`, note: "Compound angle verified" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 5: DIFFERENTIAL CALCULUS =================
   {
-    id: "thm_ftc",
+    id: "thm_group_diff_calculus",
     category: "Theorems",
     subCategory: "Calculus",
-    title: "Fundamental Theorem of Calculus (FTC)",
-    subtitle: "Connecting differentiation and integration: ∫[a,b] f(x)dx = F(b) - F(a)",
-    latex: "\\int_a^b f(x)\\,dx = F(b) - F(a) \\quad \\text{where } F'(x) = f(x)",
+    title: "Differential Calculus Theorems",
+    subtitle: "Power Rule, Product Rule, Quotient Rule, and Chain Rule",
+    latex: "\\frac{d}{dx}[cx^n] = cnx^{n-1}, \\quad (uv)' = u'v + uv', \\quad \\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}, \\quad (f \\circ g)' = f'(g(x))g'(x)",
     subFormulas: [
       {
-        id: "thm_ftc_calc",
-        title: "Definite Integral of xⁿ",
-        desc: "Evaluate definite integral ∫[a,b] xⁿ dx = [x^(n+1)/(n+1)] from a to b",
-        latex: "\\int_a^b x^n \\, dx = \\frac{b^{n+1} - a^{n+1}}{n+1}",
-        template: "(b^(n+1) - a^(n+1))/(n+1)",
-        vars: [{"id":"n","label":"Exponent n (n ≠ -1)","default":2,"type":"number"},{"id":"a","label":"Lower Limit a","default":1,"type":"number"},{"id":"b","label":"Upper Limit b","default":3,"type":"number"}],
-        compute: (v) => {
-        const n = parseFloat(v.n), a = parseFloat(v.a), b = parseFloat(v.b);
-        if (n === -1) return { error: "For n = -1, integral is ln|x|." };
-        const p = n + 1;
-        const fb = Math.pow(b, p) / p;
-        const fa = Math.pow(a, p) / p;
-        const val = fb - fa;
-        const clean = parseFloat(val.toFixed(4));
-        return {
-          formulaStatement: { title: "Fundamental Theorem of Calculus", latex: "\\int_a^b f(x)\\,dx = F(b) - F(a)" },
-          givenValues: `f(x) = x^{${n}}, \\quad a = ${a}, \\quad b = ${b}`,
-          substitution: `\\int_{${a}}^{${b}} x^{${n}}\\,dx = \\left[\\frac{x^{${p}}}{${p}}\\right]_{${a}}^{${b}} = \\frac{(${b})^{${p}}}{${p}} - \\frac{(${a})^{${p}}}{${p}}`,
-          intermediateSteps: [
-            { title: "Find Antiderivative F(x)", expression: `F(x) = \\frac{x^{${p}}}{${p}}`, note: "Power rule for antiderivatives" },
-            { title: "Evaluate at Upper Limit F(b)", expression: `F(${b}) = \\frac{${Math.pow(b, p)}}{${p}} = ${parseFloat(fb.toFixed(4))}`, note: "Upper bound evaluation" },
-            { title: "Evaluate at Lower Limit F(a)", expression: `F(${a}) = \\frac{${Math.pow(a, p)}}{${p}} = ${parseFloat(fa.toFixed(4))}`, note: "Lower bound evaluation" },
-            { title: "Subtract F(b) - F(a)", expression: `${parseFloat(fb.toFixed(4))} - ${parseFloat(fa.toFixed(4))} = ${clean}`, note: "Net signed area" }
-          ],
-          finalResult: `\\int_{${a}}^{${b}} x^{${n}}\\,dx = ${clean}`,
-          answer: `${clean}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\int_a^b f(x)dx = F(b) - F(a)", note: "Fundamental theorem of calculus part 2" },
-            { title: "Step 2: Given Values", expression: `f(x) = x^{${n}}, \\; a = ${a}, \\; b = ${b}`, note: "Integrand and limits" },
-            { title: "Step 3: Antiderivative", expression: `F(x) = x^{${p}}/${p}`, note: "Antidifferentiate integrand" },
-            { title: "Step 4: Boundary Difference", expression: `F(${b}) - F(${a}) = ${clean}`, note: "Evaluate F(b) - F(a)" },
-            { title: "Step 5: Final Result", expression: `${clean}`, note: "Definite integral verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_power_rule",
-    category: "Theorems",
-    subCategory: "Calculus",
-    title: "Power Rule for Differentiation",
-    subtitle: "Fundamental derivative of a monomial power: d/dx [c · xⁿ] = c · n · xⁿ⁻¹",
-    latex: "\\frac{d}{dx}\\left[c \\cdot x^n\\right] = c \\cdot n \\cdot x^{n-1}",
-    subFormulas: [
-      {
-        id: "thm_power_rule_calc",
-        title: "Power Rule Derivative Evaluator",
+        id: "thm_power_rule_sub",
+        title: "1. Power Rule (d/dx [cxⁿ])",
         desc: "Find derivative of c·xⁿ and evaluate at point x",
-        latex: "f'(x) = c \\cdot n \\cdot x^{n-1}",
+        latex: "\\frac{d}{dx}[c x^n] = c \\cdot n \\cdot x^{n-1}",
         template: "c * n * x^(n-1)",
-        vars: [{"id":"c","label":"Coefficient c","default":4,"type":"number"},{"id":"n","label":"Exponent n","default":3,"type":"number"},{"id":"x","label":"Evaluation Point x","default":2,"type":"number"}],
-        compute: (v) => {
-        const c = parseFloat(v.c), n = parseFloat(v.n), x = parseFloat(v.x);
-        const newCoeff = c * n;
-        const newPower = n - 1;
-        const slope = newCoeff * Math.pow(x, newPower);
-        const cleanSlope = parseFloat(slope.toFixed(4));
-        return {
-          formulaStatement: { title: "Power Rule for Derivatives", latex: "\\frac{d}{dx}[c x^n] = c \\cdot n \\cdot x^{n-1}" },
-          givenValues: `f(x) = ${c}x^{${n}}, \\quad x = ${x}`,
-          substitution: `f'(x) = (${c}) \\cdot (${n}) \\cdot x^{${n}-1} = ${newCoeff}x^{${newPower}}`,
-          intermediateSteps: [
-            { title: "Multiply Coefficient by Exponent", expression: `${c} \\times ${n} = ${newCoeff}`, note: "New lead coefficient" },
-            { title: "Decrement Exponent by 1", expression: `${n} - 1 = ${newPower}`, note: "Power reduced by 1" },
-            { title: "Evaluate at Target x", expression: `f'(${x}) = ${newCoeff}(${x})^{${newPower}} = ${cleanSlope}`, note: "Tangent line slope at x" }
-          ],
-          finalResult: `f'(${x}) = ${cleanSlope} \\quad (f'(x) = ${newCoeff}x^{${newPower}})`,
-          answer: `f'(${x}) = ${cleanSlope}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\frac{d}{dx}[c x^n] = c \\cdot n \\cdot x^{n-1}", note: "Differentiation power rule" },
-            { title: "Step 2: Given Values", expression: `f(x) = ${c}x^{${n}}, \\; x = ${x}`, note: "Target monomial and point" },
-            { title: "Step 3: Differentiation", expression: `f'(x) = ${newCoeff}x^{${newPower}}`, note: "Differentiate with respect to x" },
-            { title: "Step 4: Evaluation", expression: `f'(${x}) = ${newCoeff}(${x})^{${newPower}} = ${cleanSlope}`, note: "Substitute point" },
-            { title: "Step 5: Final Result", expression: `${cleanSlope}`, note: "Derivative slope verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_product_rule",
-    category: "Theorems",
-    subCategory: "Calculus",
-    title: "Product Rule for Derivatives",
-    subtitle: "Derivative of the product of two functions: (u · v)' = u'v + uv'",
-    latex: "\\frac{d}{dx}[u(x)v(x)] = u'(x)v(x) + u(x)v'(x)",
-    subFormulas: [
+        vars: [
+          { id: "c", label: "Coefficient c", default: 4, type: "number" },
+          { id: "n", label: "Exponent n", default: 3, type: "number" },
+          { id: "x", label: "Point x", default: 2, type: "number" }
+        ],
+        compute(v) {
+          const c = parseFloat(v.c), n = parseFloat(v.n), x = parseFloat(v.x);
+          const newCoeff = c * n, newPower = n - 1;
+          const slope = newCoeff * Math.pow(x, newPower);
+          const cleanSlope = parseFloat(slope.toFixed(4));
+          const inter = [
+            { title: "New Lead Coefficient", expression: `${c} \\times ${n} = ${newCoeff}`, note: "Scale by exponent" },
+            { title: "Reduced Exponent", expression: `${n} - 1 = ${newPower}`, note: "Decrement power by 1" },
+            { title: "Evaluate at Target x", expression: `f'(${x}) = ${newCoeff}(${x})^{${newPower}} = ${cleanSlope}`, note: "Tangent slope" }
+          ];
+          return {
+            formulaStatement: { title: "Power Rule for Derivatives", latex: "\\frac{d}{dx}[c x^n] = c \\cdot n \\cdot x^{n-1}" },
+            givenValues: `f(x) = ${c}x^{${n}}, \\quad x = ${x}`,
+            substitution: `f'(${x}) = (${c})(${n})(${x})^{${newPower}} = ${cleanSlope}`,
+            intermediateSteps: inter,
+            finalResult: `f'(${x}) = ${cleanSlope}`,
+            answer: `f'(${x}) = ${cleanSlope}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\frac{d}{dx}[c x^n] = c n x^{n-1}", note: "Power rule" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${cleanSlope}`, note: "Derivative evaluated" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_product_rule_calc",
-        title: "Product Rule Evaluation",
-        desc: "Evaluate (u · v)' given u, u', v, v' at a point",
-        latex: "(uv)' = u'v + uv'",
+        id: "thm_product_rule_sub",
+        title: "2. Product Rule ((u · v)')",
+        desc: "Evaluate (u · v)' = u'v + uv' at a point",
+        latex: "(u \\cdot v)' = u'v + uv'",
         template: "uPrime * v + u * vPrime",
-        vars: [{"id":"u","label":"u(x)","default":3,"type":"number"},{"id":"uPrime","label":"u'(x)","default":2,"type":"number"},{"id":"v","label":"v(x)","default":5,"type":"number"},{"id":"vPrime","label":"v'(x)","default":4,"type":"number"}],
-        compute: (v) => {
-        const u = parseFloat(v.u), uP = parseFloat(v.uPrime), vVal = parseFloat(v.v), vP = parseFloat(v.vPrime);
-        const term1 = uP * vVal, term2 = u * vP;
-        const res = term1 + term2;
-        const clean = parseFloat(res.toFixed(4));
-        return {
-          formulaStatement: { title: "Product Rule", latex: "(u \\cdot v)' = u'v + uv'" },
-          givenValues: `u = ${u}, \\; u' = ${uP}, \\; v = ${vVal}, \\; v' = ${vP}`,
-          substitution: `(uv)' = (${uP})(${vVal}) + (${u})(${vP}) = ${term1} + ${term2}`,
-          intermediateSteps: [
-            { title: "Calculate u'v", expression: `${uP} \\times ${vVal} = ${term1}`, note: "Derivative of first times second" },
-            { title: "Calculate uv'", expression: `${u} \\times ${vP} = ${term2}`, note: "First times derivative of second" },
-            { title: "Sum Components", expression: `${term1} + ${term2} = ${clean}`, note: "Total derivative" }
-          ],
-          finalResult: `(uv)' = ${clean}`,
-          answer: `${clean}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "(uv)' = u'v + uv'", note: "Product rule identity" },
-            { title: "Step 2: Given Values", expression: `u=${u}, u'=${uP}, v=${vVal}, v'=${vP}`, note: "Component values" },
-            { title: "Step 3: Substitution", expression: `(${uP})(${vVal}) + (${u})(${vP})`, note: "Insert components" },
-            { title: "Step 4: Addition", expression: `${term1} + ${term2} = ${clean}`, note: "Sum terms" },
-            { title: "Step 5: Final Result", expression: `${clean}`, note: "Product derivative confirmed" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_quotient_rule",
-    category: "Theorems",
-    subCategory: "Calculus",
-    title: "Quotient Rule for Derivatives",
-    subtitle: "Derivative of a ratio of two differentiable functions: (u / v)' = (u'v - uv') / v²",
-    latex: "\\frac{d}{dx}\\left[\\frac{u(x)}{v(x)}\\right] = \\frac{u'(x)v(x) - u(x)v'(x)}{[v(x)]^2}",
-    subFormulas: [
+        vars: [
+          { id: "u", label: "u(x)", default: 3, type: "number" },
+          { id: "uPrime", label: "u'(x)", default: 2, type: "number" },
+          { id: "v", label: "v(x)", default: 5, type: "number" },
+          { id: "vPrime", label: "v'(x)", default: 4, type: "number" }
+        ],
+        compute(v) {
+          const u = parseFloat(v.u), uP = parseFloat(v.uPrime), vVal = parseFloat(v.v), vP = parseFloat(v.vPrime);
+          const term1 = uP * vVal, term2 = u * vP, res = term1 + term2;
+          const clean = parseFloat(res.toFixed(4));
+          const inter = [
+            { title: "u'v and uv'", expression: `(${uP})(${vVal}) = ${term1}, \\quad (${u})(${vP}) = ${term2}`, note: "Derivative terms" },
+            { title: "Sum Components", expression: `${term1} + ${term2} = ${clean}`, note: "Combined product rule" }
+          ];
+          return {
+            formulaStatement: { title: "Product Rule", latex: "(u \\cdot v)' = u'v + uv'" },
+            givenValues: `u = ${u}, \\; u' = ${uP}, \\; v = ${vVal}, \\; v' = ${vP}`,
+            substitution: `(${uP})(${vVal}) + (${u})(${vP}) = ${clean}`,
+            intermediateSteps: inter,
+            finalResult: `(uv)' = ${clean}`,
+            answer: `${clean}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "(uv)' = u'v + uv'", note: "Product rule" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${clean}`, note: "Product derivative confirmed" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_quotient_rule_calc",
-        title: "Quotient Rule Evaluator",
-        desc: "Evaluate (u / v)' given u, u', v, v' with v ≠ 0",
+        id: "thm_quotient_rule_sub",
+        title: "3. Quotient Rule ((u / v)')",
+        desc: "Evaluate (u / v)' = (u'v - uv') / v² with v ≠ 0",
         latex: "\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}",
         template: "(uPrime * v - u * vPrime)/(v^2)",
-        vars: [{"id":"u","label":"u(x)","default":6,"type":"number"},{"id":"uPrime","label":"u'(x)","default":3,"type":"number"},{"id":"v","label":"v(x) (v ≠ 0)","default":2,"type":"number"},{"id":"vPrime","label":"v'(x)","default":1,"type":"number"}],
-        compute: (v) => {
-        const u = parseFloat(v.u), uP = parseFloat(v.uPrime), vVal = parseFloat(v.v), vP = parseFloat(v.vPrime);
-        if (vVal === 0) return { error: "Denominator v cannot be 0." };
-        const num = uP * vVal - u * vP;
-        const den = vVal * vVal;
-        const res = num / den;
-        const clean = parseFloat(res.toFixed(4));
-        return {
-          formulaStatement: { title: "Quotient Rule", latex: "\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}" },
-          givenValues: `u = ${u}, \\; u' = ${uP}, \\; v = ${vVal}, \\; v' = ${vP}`,
-          substitution: `\\left(\\frac{u}{v}\\right)' = \\frac{(${uP})(${vVal}) - (${u})(${vP})}{(${vVal})^2} = \\frac{${uP * vVal} - ${u * vP}}{${den}}`,
-          intermediateSteps: [
-            { title: "Evaluate Numerator (u'v - uv')", expression: `${uP * vVal} - ${u * vP} = ${num}`, note: "Low d-high minus high d-low" },
-            { title: "Evaluate Denominator (v²)", expression: `(${vVal})^2 = ${den}`, note: "Square of denominator" },
-            { title: "Quotient Evaluation", expression: `\\frac{${num}}{${den}} = ${clean}`, note: "Final slope" }
-          ],
-          finalResult: `\\left(\\frac{u}{v}\\right)' = ${clean}`,
-          answer: `${clean}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "(u/v)' = (u'v - uv')/v^2", note: "Quotient rule identity" },
-            { title: "Step 2: Given Values", expression: `u=${u}, u'=${uP}, v=${vVal}, v'=${vP}`, note: "Point values" },
-            { title: "Step 3: Numerator Calculation", expression: `${num}`, note: "Compute difference of products" },
-            { title: "Step 4: Division by v²", expression: `${num}/${den} = ${clean}`, note: "Perform division" },
-            { title: "Step 5: Final Result", expression: `${clean}`, note: "Quotient derivative verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_chain_rule",
-    category: "Theorems",
-    subCategory: "Calculus",
-    title: "Chain Rule for Composite Functions",
-    subtitle: "Derivative of nested composite functions: d/dx [f(g(x))] = f'(g(x)) · g'(x)",
-    latex: "\\frac{d}{dx}[f(g(x))] = f'(g(x)) \\cdot g'(x)",
-    subFormulas: [
+        vars: [
+          { id: "u", label: "u(x)", default: 6, type: "number" },
+          { id: "uPrime", label: "u'(x)", default: 3, type: "number" },
+          { id: "v", label: "v(x) (≠ 0)", default: 2, type: "number" },
+          { id: "vPrime", label: "v'(x)", default: 1, type: "number" }
+        ],
+        compute(v) {
+          const u = parseFloat(v.u), uP = parseFloat(v.uPrime), vVal = parseFloat(v.v), vP = parseFloat(v.vPrime);
+          if (vVal === 0) return { error: "Denominator v cannot be 0." };
+          const num = uP * vVal - u * vP, den = vVal * vVal, res = num / den;
+          const clean = parseFloat(res.toFixed(4));
+          const inter = [
+            { title: "Numerator (u'v - uv')", expression: `(${uP})(${vVal}) - (${u})(${vP}) = ${num}`, note: "Numerator difference" },
+            { title: "Denominator (v²)", expression: `(${vVal})^2 = ${den}`, note: "Denominator square" },
+            { title: "Quotient Result", expression: `\\frac{${num}}{${den}} = ${clean}`, note: "Quotient derivative" }
+          ];
+          return {
+            formulaStatement: { title: "Quotient Rule", latex: "\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}" },
+            givenValues: `u = ${u}, \\; u' = ${uP}, \\; v = ${vVal}, \\; v' = ${vP}`,
+            substitution: `\\frac{(${uP})(${vVal}) - (${u})(${vP})}{(${vVal})^2} = ${clean}`,
+            intermediateSteps: inter,
+            finalResult: `\\left(\\frac{u}{v}\\right)' = ${clean}`,
+            answer: `${clean}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "(u/v)' = (u'v - uv')/v^2", note: "Quotient rule" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${clean}`, note: "Quotient derivative verified" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_chain_rule_calc",
-        title: "Chain Rule Evaluator",
-        desc: "Evaluate composite derivative given outer derivative f'(u) and inner derivative g'(x)",
-        latex: "(f \\circ g)' = f'(u) \\cdot g'(x)",
+        id: "thm_chain_rule_sub",
+        title: "4. Chain Rule ((f ∘ g)')",
+        desc: "Evaluate composite derivative (f ∘ g)' = f'(u) · g'(x)",
+        latex: "(f \\circ g)' = f'(g(x)) \\cdot g'(x)",
         template: "fPrime * gPrime",
-        vars: [{"id":"fPrime","label":"Outer Derivative f'(u)","default":6,"type":"number"},{"id":"gPrime","label":"Inner Derivative g'(x)","default":4,"type":"number"}],
-        compute: (v) => {
-        const fp = parseFloat(v.fPrime), gp = parseFloat(v.gPrime);
-        const res = fp * gp;
-        const clean = parseFloat(res.toFixed(4));
-        return {
-          formulaStatement: { title: "Chain Rule", latex: "\\frac{d}{dx}[f(g(x))] = f'(g(x)) \\cdot g'(x)" },
-          givenValues: `f'(u) = ${fp}, \\quad g'(x) = ${gp}`,
-          substitution: `(f \\circ g)' = (${fp}) \\times (${gp}) = ${clean}`,
-          intermediateSteps: [
-            { title: "Outer Function Derivative f'(u)", expression: `f'(g(x)) = ${fp}`, note: "Derivative with respect to inner block u" },
-            { title: "Inner Function Derivative g'(x)", expression: `g'(x) = ${gp}`, note: "Derivative of inner function with respect to x" },
+        vars: [
+          { id: "fPrime", label: "Outer Derivative f'(u)", default: 6, type: "number" },
+          { id: "gPrime", label: "Inner Derivative g'(x)", default: 4, type: "number" }
+        ],
+        compute(v) {
+          const fp = parseFloat(v.fPrime), gp = parseFloat(v.gPrime);
+          const res = fp * gp;
+          const clean = parseFloat(res.toFixed(4));
+          const inter = [
             { title: "Multiply Rates of Change", expression: `${fp} \\times ${gp} = ${clean}`, note: "Product of derivatives" }
-          ],
-          finalResult: `(f \\circ g)' = ${clean}`,
-          answer: `${clean}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "(f(g(x)))' = f'(g(x)) g'(x)", note: "Chain rule identity" },
-            { title: "Step 2: Given Values", expression: `f'(u) = ${fp}, \\; g'(x) = ${gp}`, note: "Outer and inner derivatives" },
-            { title: "Step 3: Chain Multiplication", expression: `${fp} \\times ${gp}`, note: "Multiply rates" },
-            { title: "Step 4: Computation", expression: `${clean}`, note: "Calculate product" },
-            { title: "Step 5: Final Result", expression: `${clean}`, note: "Composite derivative confirmed" }
-          ]
-        };
-      }
+          ];
+          return {
+            formulaStatement: { title: "Chain Rule", latex: "(f \\circ g)' = f'(u) \\cdot g'(x)" },
+            givenValues: `f'(u) = ${fp}, \\quad g'(x) = ${gp}`,
+            substitution: `(${fp}) \\times (${gp}) = ${clean}`,
+            intermediateSteps: inter,
+            finalResult: `(f \\circ g)' = ${clean}`,
+            answer: `${clean}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "(f(g(x)))' = f'(g(x)) g'(x)", note: "Chain rule" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${clean}`, note: "Composite derivative evaluated" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 6: INTEGRAL CALCULUS & LIMITS =================
   {
-    id: "thm_lhopital",
+    id: "thm_group_integral_limits",
     category: "Theorems",
     subCategory: "Calculus",
-    title: "L'Hôpital's Rule",
-    subtitle: "Evaluating indeterminate limits (0/0 or ∞/∞) using the ratio of derivatives: lim f/g = lim f'/g'",
-    latex: "\\lim_{x \\to c}\\frac{f(x)}{g(x)} = \\lim_{x \\to c}\\frac{f'(x)}{g'(x)} \\quad \\left(\\text{for } \\frac{0}{0} \\text{ or } \\frac{\\infty}{\\infty}\\right)",
+    title: "Integral Calculus & Limits",
+    subtitle: "Fundamental Theorem of Calculus (FTC), L'Hôpital's Rule, and Taylor Series Expansion",
+    latex: "\\int_a^b f(x)dx = F(b)-F(a), \\quad \\lim \\frac{f}{g} = \\lim \\frac{f'}{g'}, \\quad T_2(x) = f(a) + f'(a)(x-a) + \\frac{f''(a)}{2}(x-a)^2",
     subFormulas: [
       {
-        id: "thm_lhopital_calc",
-        title: "L'Hôpital Derivative Ratio",
-        desc: "Evaluate limit from the ratio of first derivatives f'(c) / g'(c) with g'(c) ≠ 0",
-        latex: "L = \\frac{f'(c)}{g'(c)}",
+        id: "thm_ftc_sub",
+        title: "1. Fundamental Theorem of Calculus (FTC)",
+        desc: "Evaluate definite integral ∫[a,b] xⁿ dx = [x^(n+1)/(n+1)] from a to b",
+        latex: "\\int_a^b x^n \\, dx = \\frac{b^{n+1} - a^{n+1}}{n+1} \\quad (n \\neq -1)",
+        template: "(b^(n+1) - a^(n+1))/(n+1)",
+        vars: [
+          { id: "n", label: "Exponent n (≠ -1)", default: 2, type: "number" },
+          { id: "a", label: "Lower Bound a", default: 1, type: "number" },
+          { id: "b", label: "Upper Bound b", default: 3, type: "number" }
+        ],
+        compute(v) {
+          const n = parseFloat(v.n), a = parseFloat(v.a), b = parseFloat(v.b);
+          if (n === -1) return { error: "For n = -1, integral is ln|x|." };
+          const p = n + 1;
+          const fb = Math.pow(b, p) / p, fa = Math.pow(a, p) / p;
+          const val = fb - fa;
+          const clean = parseFloat(val.toFixed(4));
+          const inter = [
+            { title: "Antiderivative F(x)", expression: `F(x) = \\frac{x^{${p}}}{${p}}`, note: "Antiderivative" },
+            { title: "Boundary Values F(b) - F(a)", expression: `\\frac{${b}^{${p}}}{${p}} - \\frac{${a}^{${p}}}{${p}} = ${clean}`, note: "FTC evaluation" }
+          ];
+          return {
+            formulaStatement: { title: "Fundamental Theorem of Calculus", latex: "\\int_a^b f(x)dx = F(b) - F(a)" },
+            givenValues: `f(x) = x^{${n}}, \\; a = ${a}, \\; b = ${b}`,
+            substitution: `\\left[\\frac{x^{${p}}}{${p}}\\right]_{${a}}^{${b}} = ${clean}`,
+            intermediateSteps: inter,
+            finalResult: `\\int_{${a}}^{${b}} x^{${n}}\\,dx = ${clean}`,
+            answer: `${clean}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\int_a^b f(x)dx = F(b) - F(a)", note: "FTC part 2" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${clean}`, note: "Definite integral verified" }
+            ]
+          };
+        }
+      },
+      {
+        id: "thm_lhopital_sub",
+        title: "2. L'Hôpital's Rule (Indeterminate Limits)",
+        desc: "Evaluate 0/0 or ∞/∞ limits using ratio of derivatives: lim f/g = lim f'/g'",
+        latex: "\\lim_{x \\to c}\\frac{f(x)}{g(x)} = \\lim_{x \\to c}\\frac{f'(x)}{g'(x)} = \\frac{f'(c)}{g'(c)}",
         template: "fPrime / gPrime",
-        vars: [{"id":"fPrime","label":"Numerator Derivative f'(c)","default":3,"type":"number"},{"id":"gPrime","label":"Denominator Derivative g'(c) (≠ 0)","default":6,"type":"number"}],
-        compute: (v) => {
-        const fp = parseFloat(v.fPrime), gp = parseFloat(v.gPrime);
-        if (gp === 0) return { error: "Denominator derivative g'(c) cannot be 0." };
-        const L = fp / gp;
-        const clean = parseFloat(L.toFixed(4));
-        return {
-          formulaStatement: { title: "L'Hôpital's Rule", latex: "\\lim_{x \\to c} \\frac{f(x)}{g(x)} = \\lim_{x \\to c} \\frac{f'(x)}{g'(x)}" },
-          givenValues: `f'(c) = ${fp}, \\quad g'(c) = ${gp}`,
-          substitution: `L = \\frac{${fp}}{${gp}} = ${clean}`,
-          intermediateSteps: [
-            { title: "Check Indeterminacy Condition", expression: "\\text{Indeterminate Form: } \\left[\\frac{0}{0}\\right] \\text{ or } \\left[\\frac{\\infty}{\\infty}\\right]", note: "Prerequisite for L'Hôpital's Rule" },
-            { title: "Differentiate Numerator & Denominator Separately", expression: `f'(c) = ${fp}, \\quad g'(c) = ${gp}`, note: "Not quotient rule — differentiate independently" },
-            { title: "Evaluate Ratio of Derivatives", expression: `\\frac{${fp}}{${gp}} = ${clean}`, note: "Finite limiting value" }
-          ],
-          finalResult: `L = ${clean}`,
-          answer: `${clean}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\lim f(x)/g(x) = \\lim f'(x)/g'(x)", note: "L'Hôpital's rule" },
-            { title: "Step 2: Given Derivatives", expression: `f'(c) = ${fp}, \\; g'(c) = ${gp}`, note: "Values at target limit point" },
-            { title: "Step 3: Substitution", expression: `${fp}/${gp}`, note: "Form derivative ratio" },
-            { title: "Step 4: Division", expression: `${clean}`, note: "Evaluate quotient" },
-            { title: "Step 5: Final Result", expression: `L = ${clean}`, note: "Limit value confirmed" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_taylor",
-    category: "Theorems",
-    subCategory: "Calculus",
-    title: "Taylor & Maclaurin Series",
-    subtitle: "Polynomial approximation of infinitely differentiable functions: f(x) = ∑ fⁿ(a)/n! · (x - a)ⁿ",
-    latex: "f(x) = \\sum_{n=0}^\\infty \\frac{f^{(n)}(a)}{n!}(x - a)^n",
-    subFormulas: [
+        vars: [
+          { id: "fPrime", label: "Numerator Derivative f'(c)", default: 3, type: "number" },
+          { id: "gPrime", label: "Denominator Derivative g'(c) (≠ 0)", default: 6, type: "number" }
+        ],
+        compute(v) {
+          const fp = parseFloat(v.fPrime), gp = parseFloat(v.gPrime);
+          if (gp === 0) return { error: "Denominator derivative g'(c) cannot be 0." };
+          const L = fp / gp;
+          const clean = parseFloat(L.toFixed(4));
+          const inter = [
+            { title: "Derivative Ratio", expression: `\\frac{f'(c)}{g'(c)} = \\frac{${fp}}{${gp}} = ${clean}`, note: "Limiting slope" }
+          ];
+          return {
+            formulaStatement: { title: "L'Hôpital's Rule", latex: "\\lim \\frac{f(x)}{g(x)} = \\lim \\frac{f'(x)}{g'(x)}" },
+            givenValues: `f'(c) = ${fp}, \\quad g'(c) = ${gp}`,
+            substitution: `L = \\frac{${fp}}{${gp}} = ${clean}`,
+            intermediateSteps: inter,
+            finalResult: `L = ${clean}`,
+            answer: `${clean}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\lim f(x)/g(x) = \\lim f'(x)/g'(x)", note: "L'Hôpital's rule" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `L = ${clean}`, note: "Limit evaluated" }
+            ]
+          };
+        }
+      },
       {
-        id: "thm_taylor_calc",
-        title: "2nd-Order Taylor Polynomial Approximation",
+        id: "thm_taylor_sub",
+        title: "3. Taylor Polynomial (Order 2)",
         desc: "Approximate f(x) near a: T₂(x) = f(a) + f'(a)(x - a) + (f''(a)/2)(x - a)²",
         latex: "T_2(x) = f(a) + f'(a)(x - a) + \\frac{f''(a)}{2}(x - a)^2",
         template: "fa + fPrimeA*(x - a) + (fDoublePrimeA/2)*(x - a)^2",
-        vars: [{"id":"fa","label":"f(a)","default":1,"type":"number"},{"id":"fPrimeA","label":"f'(a)","default":2,"type":"number"},{"id":"fDoublePrimeA","label":"f''(a)","default":6,"type":"number"},{"id":"a","label":"Expansion Center a","default":0,"type":"number"},{"id":"x","label":"Evaluation Point x","default":0.5,"type":"number"}],
-        compute: (v) => {
-        const fa = parseFloat(v.fa), fp = parseFloat(v.fPrimeA), fpp = parseFloat(v.fDoublePrimeA);
-        const a = parseFloat(v.a), x = parseFloat(v.x);
-        const dx = x - a;
-        const term0 = fa;
-        const term1 = fp * dx;
-        const term2 = (fpp / 2) * dx * dx;
-        const T2 = term0 + term1 + term2;
-        const clean = parseFloat(T2.toFixed(4));
-        return {
-          formulaStatement: { title: "Taylor Polynomial (Order 2)", latex: "T_2(x) = f(a) + f'(a)(x - a) + \\frac{f''(a)}{2}(x - a)^2" },
-          givenValues: `f(a) = ${fa}, \\; f'(a) = ${fp}, \\; f''(a) = ${fpp}, \\; a = ${a}, \\; x = ${x}`,
-          substitution: `T_2(${x}) = ${fa} + ${fp}(${dx}) + \\frac{${fpp}}{2}(${dx})^2`,
-          intermediateSteps: [
-            { title: "Constant Term", expression: `T_0 = ${term0}`, note: "Zero order approximation" },
-            { title: "Linear Tangent Term", expression: `${fp} \\times (${dx}) = ${parseFloat(term1.toFixed(4))}`, note: "First order tangent correction" },
-            { title: "Quadratic Curvature Term", expression: `\\frac{${fpp}}{2} \\times (${parseFloat((dx * dx).toFixed(4))}) = ${parseFloat(term2.toFixed(4))}`, note: "Second order curvature correction" },
-            { title: "Sum Terms", expression: `${term0} + ${parseFloat(term1.toFixed(4))} + ${parseFloat(term2.toFixed(4))} = ${clean}`, note: "Second order Taylor approximation" }
-          ],
-          finalResult: `T_2(${x}) = ${clean}`,
-          answer: `${clean}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "T_2(x) = f(a) + f'(a)(x-a) + \\frac{f''(a)}{2}(x-a)^2", note: "Second-order Taylor polynomial" },
-            { title: "Step 2: Given Values", expression: `f(a)=${fa}, f'=${fp}, f''=${fpp}, a=${a}, x=${x}`, note: "Expansion parameters" },
-            { title: "Step 3: Component Evaluation", expression: `${term0} + ${parseFloat(term1.toFixed(4))} + ${parseFloat(term2.toFixed(4))}`, note: "Sum polynomial terms" },
-            { title: "Step 4: Computation", expression: `${clean}`, note: "Arithmetic evaluation" },
-            { title: "Step 5: Final Result", expression: `${clean}`, note: "Taylor approximation verified" }
-          ]
-        };
-      }
+        vars: [
+          { id: "fa", label: "f(a)", default: 1, type: "number" },
+          { id: "fPrimeA", label: "f'(a)", default: 2, type: "number" },
+          { id: "fDoublePrimeA", label: "f''(a)", default: 6, type: "number" },
+          { id: "a", label: "Center a", default: 0, type: "number" },
+          { id: "x", label: "Point x", default: 0.5, type: "number" }
+        ],
+        compute(v) {
+          const fa = parseFloat(v.fa), fp = parseFloat(v.fPrimeA), fpp = parseFloat(v.fDoublePrimeA);
+          const a = parseFloat(v.a), x = parseFloat(v.x);
+          const dx = x - a;
+          const term0 = fa, term1 = fp * dx, term2 = (fpp / 2) * dx * dx;
+          const T2 = term0 + term1 + term2;
+          const clean = parseFloat(T2.toFixed(4));
+          const inter = [
+            { title: "Terms: T₀ + T₁ + T₂", expression: `${term0} + ${parseFloat(term1.toFixed(4))} + ${parseFloat(term2.toFixed(4))} = ${clean}`, note: "Constant + Linear + Curvature" }
+          ];
+          return {
+            formulaStatement: { title: "Taylor Polynomial (Order 2)", latex: "T_2(x) = f(a) + f'(a)(x - a) + \\frac{f''(a)}{2}(x - a)^2" },
+            givenValues: `f(a)=${fa}, \\; f'=${fp}, \\; f''=${fpp}, \\; a=${a}, \\; x=${x}`,
+            substitution: `T_2(${x}) = ${clean}`,
+            intermediateSteps: inter,
+            finalResult: `T_2(${x}) = ${clean}`,
+            answer: `${clean}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "T_2(x) = f(a) + f'(a)(x-a) + \\frac{f''(a)}{2}(x-a)^2", note: "Taylor series" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `${clean}`, note: "Approximation complete" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 7: NUMBER THEORY =================
   {
-    id: "thm_arithmetic_fund",
+    id: "thm_group_number_theory",
     category: "Theorems",
     subCategory: "Number Theory",
-    title: "Fundamental Theorem of Arithmetic",
-    subtitle: "Every integer n > 1 can be uniquely factored into prime powers: n = p₁ᵃ¹ · p₂ᵃ² ··· pₖᵃᵏ",
-    latex: "n = p_1^{a_1} \\cdot p_2^{a_2} \\cdots p_k^{a_k}",
+    title: "Number Theory Theorems",
+    subtitle: "Prime Factorization, Euclidean GCD, Fermat's Little Theorem, Euler's Totient, and CRT",
+    latex: "n = \\prod p_i^{a_i}, \\quad \\gcd(a,b)=\\gcd(b,r), \\quad a^{p-1} \\equiv 1 \\pmod p, \\quad \\phi(n), \\quad x \\equiv a_i \\pmod{m_i}",
     subFormulas: [
       {
-        id: "thm_arithmetic_fund_calc",
-        title: "Prime Factorization",
-        desc: "Compute the unique canonical prime factorization of positive integer n",
-        latex: "n = \\prod_{i=1}^k p_i^{a_i}",
+        id: "thm_prime_fact_sub",
+        title: "1. Fundamental Theorem of Arithmetic",
+        desc: "Compute unique canonical prime factorization of positive integer n ≥ 2",
+        latex: "n = p_1^{a_1} \\cdot p_2^{a_2} \\cdots p_k^{a_k}",
         template: "n",
-        vars: [{"id":"n","label":"Integer n (n ≥ 2)","default":360,"type":"number"}],
-        compute: (v) => {
-        let n = Math.round(parseFloat(v.n));
-        if (n < 2) return { error: "Integer n must be ≥ 2." };
-        const origN = n;
-        const factors = {};
-        for (let d = 2; d * d <= n; d++) {
-          while (n % d === 0) {
-            factors[d] = (factors[d] || 0) + 1;
-            n /= d;
+        vars: [
+          { id: "n", label: "Integer n (n ≥ 2)", default: 360, type: "number" }
+        ],
+        compute(v) {
+          let n = Math.round(parseFloat(v.n));
+          if (n < 2) return { error: "Integer n must be ≥ 2." };
+          const origN = n;
+          const factors = {};
+          for (let d = 2; d * d <= n; d++) {
+            while (n % d === 0) {
+              factors[d] = (factors[d] || 0) + 1;
+              n /= d;
+            }
           }
+          if (n > 1) factors[n] = (factors[n] || 0) + 1;
+          const parts = Object.entries(factors).map(([p, exp]) => exp === 1 ? `${p}` : `${p}^{${exp}}`);
+          const latexFactorization = parts.join(' \\times ');
+          return {
+            formulaStatement: { title: "Fundamental Theorem of Arithmetic", latex: "n = \\prod p_i^{a_i}" },
+            givenValues: `n = ${origN}`,
+            substitution: `${origN} = ${latexFactorization}`,
+            intermediateSteps: [{ title: "Prime Factors", expression: `${origN} = ${latexFactorization}`, note: "Unique prime factorization" }],
+            finalResult: `${origN} = ${latexFactorization}`,
+            answer: latexFactorization,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "n = \\prod p_i^{a_i}", note: "Unique factorization" },
+              { title: "Step 2: Factorization Result", expression: `${origN} = ${latexFactorization}`, note: "Prime powers" },
+              { title: "Step 5: Final Result", expression: latexFactorization, note: "Decomposition complete" }
+            ]
+          };
         }
-        if (n > 1) factors[n] = (factors[n] || 0) + 1;
-        const parts = Object.entries(factors).map(([p, exp]) => exp === 1 ? `${p}` : `${p}^{${exp}}`);
-        const latexFactorization = parts.join(' \\times ');
-        const stepsList = Object.entries(factors).map(([p, exp]) => ({
-          title: `Prime Factor ${p}`,
-          expression: `${p}^{${exp}} = ${Math.pow(Number(p), exp)}`,
-          note: `Divisible ${exp} time(s)`
-        }));
-        return {
-          formulaStatement: { title: "Fundamental Theorem of Arithmetic", latex: "n = p_1^{a_1} \cdot p_2^{a_2} \cdots p_k^{a_k}" },
-          givenValues: `n = ${origN}`,
-          substitution: `${origN} = ${latexFactorization}`,
-          intermediateSteps: stepsList,
-          finalResult: `${origN} = ${latexFactorization}`,
-          answer: latexFactorization,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "n = \\prod p_i^{a_i}", note: "Unique prime factorization" },
-            { title: "Step 2: Given Integer", expression: `n = ${origN}`, note: "Composite or prime integer" },
-            { title: "Step 3: Prime Trial Division", expression: latexFactorization, note: "Factor out successive primes" },
-            { title: "Step 4: Canonical Powers", expression: `${origN} = ${latexFactorization}`, note: "Group repeated primes into exponents" },
-            { title: "Step 5: Final Result", expression: `${latexFactorization}`, note: "Prime decomposition verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_euclidean_gcd",
-    category: "Theorems",
-    subCategory: "Number Theory",
-    title: "Euclidean Algorithm for GCD",
-    subtitle: "Efficient algorithm for greatest common divisor: gcd(a, b) = gcd(b, a mod b)",
-    latex: "\\gcd(a, b) = \\gcd(b, a \\bmod b)",
-    subFormulas: [
+      },
       {
-        id: "thm_euclidean_gcd_calc",
-        title: "Greatest Common Divisor (GCD)",
-        desc: "Find gcd(a, b) step-by-step using Euclidean division",
-        latex: "a = b \\cdot q + r \\implies \\gcd(a, b) = \\gcd(b, r)",
+        id: "thm_gcd_sub",
+        title: "2. Euclidean Algorithm for GCD",
+        desc: "Find greatest common divisor gcd(a, b) using Euclidean division algorithm",
+        latex: "\\gcd(a, b) = \\gcd(b, a \\bmod b)",
         template: "gcd(a, b)",
-        vars: [{"id":"a","label":"Integer a","default":252,"type":"number"},{"id":"b","label":"Integer b","default":105,"type":"number"}],
-        compute: (v) => {
-        let a = Math.abs(Math.round(parseFloat(v.a))), b = Math.abs(Math.round(parseFloat(v.b)));
-        if (a === 0 && b === 0) return { error: "Both integers cannot be zero." };
-        const origA = a, origB = b;
-        const steps = [];
-        while (b !== 0) {
-          const q = Math.floor(a / b);
-          const r = a % b;
-          steps.push({ title: `Division Step`, expression: `${a} = ${b} \\times ${q} + ${r}`, note: `Remainder r = ${r}` });
-          a = b;
-          b = r;
+        vars: [
+          { id: "a", label: "Integer a", default: 252, type: "number" },
+          { id: "b", label: "Integer b", default: 105, type: "number" }
+        ],
+        compute(v) {
+          let a = Math.abs(Math.round(parseFloat(v.a))), b = Math.abs(Math.round(parseFloat(v.b)));
+          if (a === 0 && b === 0) return { error: "Both integers cannot be zero." };
+          const origA = a, origB = b;
+          const steps = [];
+          while (b !== 0) {
+            const q = Math.floor(a / b), r = a % b;
+            steps.push({ title: "Division Step", expression: `${a} = ${b} \\times ${q} + ${r}`, note: `Remainder = ${r}` });
+            a = b; b = r;
+          }
+          return {
+            formulaStatement: { title: "Euclidean GCD Algorithm", latex: "\\gcd(a, b) = \\gcd(b, a \\bmod b)" },
+            givenValues: `a = ${origA}, \\quad b = ${origB}`,
+            substitution: `\\gcd(${origA}, ${origB}) = ${a}`,
+            intermediateSteps: steps,
+            finalResult: `\\gcd(${origA}, ${origB}) = ${a}`,
+            answer: `${a}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\gcd(a, b) = \\gcd(b, r)", note: "Euclidean algorithm" },
+              ...steps,
+              { title: "Step 5: Final Result", expression: `\\gcd = ${a}`, note: "GCD verified" }
+            ]
+          };
         }
-        const gcdVal = a;
-        return {
-          formulaStatement: { title: "Euclidean GCD Algorithm", latex: "\\gcd(a, b) = \\gcd(b, a \\bmod b)" },
-          givenValues: `a = ${origA}, \\quad b = ${origB}`,
-          substitution: `\\gcd(${origA}, ${origB}) = ${gcdVal}`,
-          intermediateSteps: steps,
-          finalResult: `\\gcd(${origA}, ${origB}) = ${gcdVal}`,
-          answer: `${gcdVal}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\gcd(a, b) = \\gcd(b, r)", note: "Euclidean division step" },
-            { title: "Step 2: Given Integers", expression: `a = ${origA}, \\; b = ${origB}`, note: "Input numbers" },
-            { title: "Step 3: Successive Remainders", expression: steps.map(s => s.expression).join(', \\; '), note: "Iterate until remainder is 0" },
-            { title: "Step 4: Non-Zero Remainder", expression: `\\gcd = ${gcdVal}`, note: "Last non-zero remainder" },
-            { title: "Step 5: Final Result", expression: `${gcdVal}`, note: "Greatest common divisor verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_fermat_little",
-    category: "Theorems",
-    subCategory: "Number Theory",
-    title: "Fermat's Little Theorem",
-    subtitle: "If p is prime and gcd(a, p) = 1, then aᵖ⁻¹ ≡ 1 (mod p)",
-    latex: "a^{p-1} \\equiv 1 \\pmod p \\quad \\text{or} \\quad a^p \\equiv a \\pmod p",
-    subFormulas: [
+      },
       {
-        id: "thm_fermat_little_calc",
-        title: "Modular Exponentiation Verification",
-        desc: "Verify a^(p-1) mod p = 1 for prime p and coprime a",
-        latex: "a^{p-1} \\bmod p = 1",
+        id: "thm_fermat_sub",
+        title: "3. Fermat's Little Theorem",
+        desc: "Verify a^(p-1) ≡ 1 (mod p) for prime p and coprime integer a",
+        latex: "a^{p-1} \\equiv 1 \\pmod p \\quad (p \\text{ is prime}, \\gcd(a, p) = 1)",
         template: "a^(p-1) mod p",
-        vars: [{"id":"a","label":"Base a (coprime to p)","default":3,"type":"number"},{"id":"p","label":"Prime Modulus p","default":7,"type":"number"}],
-        compute: (v) => {
-        const a = Math.round(parseFloat(v.a)), p = Math.round(parseFloat(v.p));
-        const isPrime = (n) => { if (n < 2) return false; for (let i = 2; i * i <= n; i++) if (n % i === 0) return false; return true; };
-        if (!isPrime(p)) return { error: "Modulus p must be a prime number (e.g., 2, 3, 5, 7, 11, 13...)." };
-        if (a % p === 0) return { error: "Base a must be coprime to prime p (a mod p ≠ 0)." };
-        const power = p - 1;
-        let res = 1;
-        let base = a % p;
-        let exp = power;
-        while (exp > 0) {
-          if (exp % 2 === 1) res = (res * base) % p;
-          base = (base * base) % p;
-          exp = Math.floor(exp / 2);
+        vars: [
+          { id: "a", label: "Base a", default: 3, type: "number" },
+          { id: "p", label: "Prime Modulus p", default: 7, type: "number" }
+        ],
+        compute(v) {
+          const a = Math.round(parseFloat(v.a)), p = Math.round(parseFloat(v.p));
+          const isPrime = (n) => { if (n < 2) return false; for (let i = 2; i * i <= n; i++) if (n % i === 0) return false; return true; };
+          if (!isPrime(p)) return { error: "Modulus p must be a prime number." };
+          if (a % p === 0) return { error: "Base a must be coprime to p (a mod p ≠ 0)." };
+          const power = p - 1;
+          let res = 1, base = a % p, exp = power;
+          while (exp > 0) {
+            if (exp % 2 === 1) res = (res * base) % p;
+            base = (base * base) % p;
+            exp = Math.floor(exp / 2);
+          }
+          return {
+            formulaStatement: { title: "Fermat's Little Theorem", latex: "a^{p-1} \\equiv 1 \\pmod p" },
+            givenValues: `a = ${a}, \\quad p = ${p}`,
+            substitution: `${a}^{${power}} \\equiv ${res} \\pmod{${p}}`,
+            intermediateSteps: [{ title: "Fermat Residue", expression: `${a}^{${power}} \\bmod ${p} = ${res}`, note: "Congruence verified: exactly 1" }],
+            finalResult: `${a}^{${power}} \\equiv 1 \\pmod{${p}}`,
+            answer: `1 (mod ${p})`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "a^{p-1} \\equiv 1 \\pmod p", note: "Fermat's theorem" },
+              { title: "Step 5: Final Result", expression: "1", note: "Verified" }
+            ]
+          };
         }
-        return {
-          formulaStatement: { title: "Fermat's Little Theorem", latex: "a^{p-1} \\equiv 1 \\pmod p" },
-          givenValues: `a = ${a}, \\quad p = ${p} \\implies p - 1 = ${power}`,
-          substitution: `${a}^{${power}} \\equiv ${res} \\pmod{${p}}`,
-          intermediateSteps: [
-            { title: "Verify Prime Modulus", expression: `p = ${p} \\text{ is prime}`, note: "Prime condition verified" },
-            { title: "Check Coprimality", expression: `\\gcd(${a}, ${p}) = 1`, note: "a is not a multiple of p" },
-            { title: "Compute Modular Power", expression: `${a}^{${power}} \\bmod ${p} = ${res}`, note: "Fermat's Little Theorem holds: exactly 1" }
-          ],
-          finalResult: `${a}^{${power}} \\equiv ${res} \\pmod{${p}}`,
-          answer: `1 (mod ${p})`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "a^{p-1} \\equiv 1 \\pmod p", note: "Fermat's congruence" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; p = ${p}`, note: "Base and prime modulus" },
-            { title: "Step 3: Exponent", expression: `p - 1 = ${power}`, note: "Fermat power" },
-            { title: "Step 4: Modular Exponentiation", expression: `${a}^{${power}} \\bmod ${p} = ${res}`, note: "Compute modular residue" },
-            { title: "Step 5: Final Result", expression: "1", note: "Congruence verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_euler_totient",
-    category: "Theorems",
-    subCategory: "Number Theory",
-    title: "Euler's Totient Theorem",
-    subtitle: "Generalization of Fermat's theorem: a^φ(n) ≡ 1 (mod n) for any coprime integers a and n",
-    latex: "a^{\\phi(n)} \\equiv 1 \\pmod n \\quad \\text{where } \\gcd(a, n) = 1",
-    subFormulas: [
+      },
       {
-        id: "thm_euler_totient_calc",
-        title: "Euler's Totient Function φ(n)",
-        desc: "Count positive integers up to n that are relatively prime to n: φ(n) = n · ∏(1 - 1/p)",
+        id: "thm_totient_sub",
+        title: "4. Euler's Totient Function φ(n)",
+        desc: "Count positive integers up to n coprime to n: φ(n) = n · ∏(1 - 1/p)",
         latex: "\\phi(n) = n \\prod_{p | n} \\left(1 - \\frac{1}{p}\\right)",
         template: "totient(n)",
-        vars: [{"id":"n","label":"Positive Integer n","default":36,"type":"number"}],
-        compute: (v) => {
-        let n = Math.round(parseFloat(v.n));
-        if (n < 1) return { error: "Integer n must be ≥ 1." };
-        const origN = n;
-        let result = n;
-        const primeFactors = [];
-        for (let p = 2; p * p <= n; ++p) {
-          if (n % p === 0) {
-            primeFactors.push(p);
-            while (n % p === 0) n /= p;
-            result -= Math.floor(result / p);
+        vars: [
+          { id: "n", label: "Positive Integer n", default: 36, type: "number" }
+        ],
+        compute(v) {
+          let n = Math.round(parseFloat(v.n));
+          if (n < 1) return { error: "Integer n must be ≥ 1." };
+          const origN = n;
+          let result = n;
+          const primeFactors = [];
+          for (let p = 2; p * p <= n; ++p) {
+            if (n % p === 0) {
+              primeFactors.push(p);
+              while (n % p === 0) n /= p;
+              result -= Math.floor(result / p);
+            }
           }
+          if (n > 1) {
+            primeFactors.push(n);
+            result -= Math.floor(result / n);
+          }
+          const formulaParts = primeFactors.map(p => `(1 - 1/${p})`).join(' \\times ');
+          return {
+            formulaStatement: { title: "Euler's Totient Function", latex: "\\phi(n) = n \\prod (1 - 1/p)" },
+            givenValues: `n = ${origN}, \\quad \\text{Primes: } ${primeFactors.join(', ')}`,
+            substitution: `\\phi(${origN}) = ${origN} \\times ${formulaParts} = ${result}`,
+            intermediateSteps: [{ title: "Totient Evaluation", expression: `\\phi(${origN}) = ${result}`, note: "Coprime count" }],
+            finalResult: `\\phi(${origN}) = ${result}`,
+            answer: `${result}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\phi(n) = n \\prod (1 - 1/p)", note: "Totient product" },
+              { title: "Step 5: Final Result", expression: `\\phi(${origN}) = ${result}`, note: "Totient verified" }
+            ]
+          };
         }
-        if (n > 1) {
-          primeFactors.push(n);
-          result -= Math.floor(result / n);
-        }
-        const formulaParts = primeFactors.map(p => `\\left(1 - \\frac{1}{${p}}\\right)`).join(' \\times ');
-        return {
-          formulaStatement: { title: "Euler's Totient Function φ(n)", latex: "\\phi(n) = n \\prod_{p | n} \\left(1 - \\frac{1}{p}\\right)" },
-          givenValues: `n = ${origN}, \\quad \\text{Distinct Primes: } ${primeFactors.join(', ')}`,
-          substitution: `\\phi(${origN}) = ${origN} \\times ${formulaParts} = ${result}`,
-          intermediateSteps: [
-            { title: "Distinct Prime Factors of n", expression: `p \\in \\{${primeFactors.join(', ')}\\}`, note: "Prime divisors of n" },
-            { title: "Product of Totient Factors", expression: `${origN} \\times ${formulaParts} = ${result}`, note: "Number of coprimes up to n" }
-          ],
-          finalResult: `\\phi(${origN}) = ${result}`,
-          answer: `${result}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "\\phi(n) = n \\prod (1 - 1/p)", note: "Euler's product formula" },
-            { title: "Step 2: Given Integer", expression: `n = ${origN}`, note: "Target modulus" },
-            { title: "Step 3: Prime Factors", expression: primeFactors.join(', '), note: "Prime divisors" },
-            { title: "Step 4: Product Evaluation", expression: `${result}`, note: "Evaluate totient product" },
-            { title: "Step 5: Final Result", expression: `\\phi(${origN}) = ${result}`, note: "Totient verified" }
-          ]
-        };
-      }
-      }
-    ]
-  },
-  {
-    id: "thm_chinese_remainder",
-    category: "Theorems",
-    subCategory: "Number Theory",
-    title: "Chinese Remainder Theorem (CRT)",
-    subtitle: "Unique simultaneous solution modulo the product of pairwise coprime moduli: x ≡ a₁ (mod m₁), x ≡ a₂ (mod m₂)",
-    latex: "x \\equiv a_1 \\pmod{m_1}, \\quad x \\equiv a_2 \\pmod{m_2} \\implies x \\pmod{m_1 m_2}",
-    subFormulas: [
+      },
       {
-        id: "thm_chinese_remainder_calc",
-        title: "2-Congruence System Solver",
-        desc: "Find unique solution x mod (m₁ · m₂) for system x ≡ a₁ (mod m₁) and x ≡ a₂ (mod m₂)",
-        latex: "x \\equiv a_1 m_2 (m_2^{-1} \\bmod m_1) + a_2 m_1 (m_1^{-1} \\bmod m_2) \\pmod{m_1 m_2}",
-        template: "x",
-        vars: [{"id":"a1","label":"Remainder a₁","default":2,"type":"number"},{"id":"m1","label":"Modulus m₁","default":3,"type":"number"},{"id":"a2","label":"Remainder a₂","default":3,"type":"number"},{"id":"m2","label":"Modulus m₂","default":5,"type":"number"}],
-        compute: (v) => {
-        const a1 = Math.round(parseFloat(v.a1)), m1 = Math.round(parseFloat(v.m1));
-        const a2 = Math.round(parseFloat(v.a2)), m2 = Math.round(parseFloat(v.m2));
-        const gcd = (x, y) => (!y ? x : gcd(y, x % y));
-        if (m1 <= 1 || m2 <= 1) return { error: "Moduli m₁ and m₂ must be > 1." };
-        if (gcd(m1, m2) !== 1) return { error: "Moduli m₁ and m₂ must be pairwise coprime (gcd = 1)." };
-        const M = m1 * m2;
-        // Find inverse of m2 mod m1:
-        let inv2 = 1;
-        for (let i = 1; i < m1; i++) { if ((m2 * i) % m1 === 1) { inv2 = i; break; } }
-        // Find inverse of m1 mod m2:
-        let inv1 = 1;
-        for (let i = 1; i < m2; i++) { if ((m1 * i) % m2 === 1) { inv1 = i; break; } }
-        const rawX = a1 * m2 * inv2 + a2 * m1 * inv1;
-        const x = ((rawX % M) + M) % M;
-        return {
-          formulaStatement: { title: "Chinese Remainder Theorem", latex: "x \\equiv a_1 \\pmod{m_1}, \\quad x \\equiv a_2 \\pmod{m_2}" },
-          givenValues: `x \\equiv ${a1} \\pmod{${m1}}, \\quad x \\equiv ${a2} \\pmod{${m2}}`,
-          substitution: `M = ${m1} \\times ${m2} = ${M}, \\quad x \\equiv ${a1}(${m2})(${inv2}) + ${a2}(${m1})(${inv1}) \\pmod{${M}}`,
-          intermediateSteps: [
-            { title: "Total Modulus M", expression: `M = m_1 \\times m_2 = ${m1} \\times ${m2} = ${M}`, note: "Combined unique system modulus" },
-            { title: "Modular Inverses", expression: `m_2^{-1} \\equiv ${inv2} \\pmod{${m1}}, \\quad m_1^{-1} \\equiv ${inv1} \\pmod{${m2}}`, note: "Bézout coefficients" },
-            { title: "Sum Components", expression: `${rawX} \\equiv ${x} \\pmod{${M}}`, note: "Smallest non-negative simultaneous residue" }
-          ],
-          finalResult: `x \\equiv ${x} \\pmod{${M}}`,
-          answer: `x = ${x} (mod ${M})`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "x = \\sum a_i M_i y_i \\pmod M", note: "CRT constructive formula" },
-            { title: "Step 2: Given Congruences", expression: `x \\equiv ${a1} \\; (\\text{mod } ${m1}), \\; x \\equiv ${a2} \\; (\\text{mod } ${m2})`, note: "System constraints" },
-            { title: "Step 3: Modulus Product", expression: `M = ${M}`, note: "Unique range" },
-            { title: "Step 4: Reconstruction", expression: `x = ${x}`, note: "Modular sum evaluated" },
-            { title: "Step 5: Final Result", expression: `x \\equiv ${x} \\pmod{${M}}`, note: "System solution verified" }
-          ]
-        };
-      }
+        id: "thm_crt_sub",
+        title: "5. Chinese Remainder Theorem (CRT)",
+        desc: "Solve system x ≡ a₁ (mod m₁), x ≡ a₂ (mod m₂) for coprime moduli",
+        latex: "x \\equiv a_1 \\pmod{m_1}, \\quad x \\equiv a_2 \\pmod{m_2}",
+        template: "CRT Solver",
+        vars: [
+          { id: "a1", label: "Remainder a₁", default: 2, type: "number" },
+          { id: "m1", label: "Modulus m₁", default: 3, type: "number" },
+          { id: "a2", label: "Remainder a₂", default: 3, type: "number" },
+          { id: "m2", label: "Modulus m₂", default: 5, type: "number" }
+        ],
+        compute(v) {
+          const a1 = Math.round(parseFloat(v.a1)), m1 = Math.round(parseFloat(v.m1));
+          const a2 = Math.round(parseFloat(v.a2)), m2 = Math.round(parseFloat(v.m2));
+          const gcd = (x, y) => (!y ? x : gcd(y, x % y));
+          if (m1 <= 1 || m2 <= 1) return { error: "Moduli m₁ and m₂ must be > 1." };
+          if (gcd(m1, m2) !== 1) return { error: "Moduli m₁ and m₂ must be coprime (gcd = 1)." };
+          const M = m1 * m2;
+          let inv2 = 1; for (let i = 1; i < m1; i++) { if ((m2 * i) % m1 === 1) { inv2 = i; break; } }
+          let inv1 = 1; for (let i = 1; i < m2; i++) { if ((m1 * i) % m2 === 1) { inv1 = i; break; } }
+          const rawX = a1 * m2 * inv2 + a2 * m1 * inv1;
+          const x = ((rawX % M) + M) % M;
+          return {
+            formulaStatement: { title: "Chinese Remainder Theorem", latex: "x \\equiv a_1 \\pmod{m_1}, \\quad x \\equiv a_2 \\pmod{m_2}" },
+            givenValues: `x \\equiv ${a1} \\pmod{${m1}}, \\quad x \\equiv ${a2} \\pmod{${m2}}`,
+            substitution: `x \\equiv ${x} \\pmod{${M}}`,
+            intermediateSteps: [{ title: "Smallest Positive Solution", expression: `x \\equiv ${x} \\pmod{${M}}`, note: "Unique residue modulo " + M }],
+            finalResult: `x \\equiv ${x} \\pmod{${M}}`,
+            answer: `x = ${x} (mod ${M})`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "x = \\sum a_i M_i y_i \\pmod M", note: "CRT reconstruction" },
+              { title: "Step 5: Final Result", expression: `x \\equiv ${x} \\pmod{${M}}`, note: "CRT solved" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 8: PROGRESSION & SERIES =================
   {
-    id: "thm_arithmetic_series",
+    id: "thm_group_progression_series",
     category: "Theorems",
     subCategory: "Algebra",
-    title: "Arithmetic Series Sum",
-    subtitle: "Sum of n terms of an arithmetic progression: Sₙ = (n / 2) · [2a + (n - 1)d]",
-    latex: "S_n = \\frac{n}{2}\\left(2a + (n - 1)d\\right) = \\frac{n}{2}(a + l)",
+    title: "Progression & Series Theorems",
+    subtitle: "Arithmetic Progression (AP) Sum and Geometric Progression (GP) Sum",
+    latex: "S_n = \\frac{n}{2}\\left(2a + (n - 1)d\\right), \\quad S_n = \\frac{a(1 - r^n)}{1 - r}",
     subFormulas: [
       {
-        id: "thm_arithmetic_series_calc",
-        title: "Sum of First n Terms (AP)",
+        id: "thm_ap_sum_sub",
+        title: "1. Arithmetic Series Sum (AP)",
         desc: "Calculate sum Sₙ given first term a, common difference d, and term count n",
         latex: "S_n = \\frac{n}{2}[2a + (n - 1)d]",
         template: "(n / 2) * (2 * a + (n - 1) * d)",
-        vars: [{"id":"a","label":"First Term a","default":3,"type":"number"},{"id":"d","label":"Common Difference d","default":4,"type":"number"},{"id":"n","label":"Number of Terms n","default":10,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), d = parseFloat(v.d), n = Math.round(parseFloat(v.n));
-        if (n <= 0) return { error: "Number of terms n must be positive." };
-        const l = a + (n - 1) * d;
-        const sum = (n / 2) * (2 * a + (n - 1) * d);
-        const cleanS = parseFloat(sum.toFixed(4));
-        return {
-          formulaStatement: { title: "Arithmetic Series Sum", latex: "S_n = \\frac{n}{2}[2a + (n - 1)d] = \\frac{n}{2}(a + l)" },
-          givenValues: `a = ${a}, \\quad d = ${d}, \\quad n = ${n}`,
-          substitution: `S_{${n}} = \\frac{${n}}{2}[2(${a}) + (${n} - 1)(${d})] = ${n / 2}[${2 * a} + ${(n - 1) * d}]`,
-          intermediateSteps: [
-            { title: "Calculate Last Term l", expression: `l = a + (n - 1)d = ${a} + (${n - 1})(${d}) = ${l}`, note: "nth term of progression" },
-            { title: "Evaluate Bracket Expression", expression: `2a + (n - 1)d = ${2 * a} + ${(n - 1) * d} = ${2 * a + (n - 1) * d}`, note: "Sum of first and last elements" },
-            { title: "Multiply by n / 2", expression: `${n / 2} \\times ${2 * a + (n - 1) * d} = ${cleanS}`, note: "Total sequence sum" }
-          ],
-          finalResult: `S_{${n}} = ${cleanS}`,
-          answer: `${cleanS}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "S_n = \\frac{n}{2}(2a + (n-1)d)", note: "Gauss AP summation formula" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; d = ${d}, \\; n = ${n}`, note: "Progression parameters" },
-            { title: "Step 3: Substitution", expression: `S = ${n/2} \\times [2(${a}) + ${n-1}(${d})]`, note: "Substitute into equation" },
-            { title: "Step 4: Bracket Sum", expression: `${2*a + (n-1)*d}`, note: "Inner addition" },
-            { title: "Step 5: Final Result", expression: `S_{${n}} = ${cleanS}`, note: "Series sum verified" }
-          ]
-        };
-      }
+        vars: [
+          { id: "a", label: "First Term a", default: 3, type: "number" },
+          { id: "d", label: "Common Difference d", default: 4, type: "number" },
+          { id: "n", label: "Number of Terms n", default: 10, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), d = parseFloat(v.d), n = Math.round(parseFloat(v.n));
+          if (n <= 0) return { error: "Number of terms n must be positive." };
+          const sum = (n / 2) * (2 * a + (n - 1) * d);
+          const cleanS = parseFloat(sum.toFixed(4));
+          const inter = [
+            { title: "Inner Bracket Term", expression: `2(${a}) + (${n}-1)(${d}) = ${2 * a + (n - 1) * d}`, note: "First + last terms" },
+            { title: "Multiply by n/2", expression: `\\frac{${n}}{2} \\times ${2 * a + (n - 1) * d} = ${cleanS}`, note: "AP Sum" }
+          ];
+          return {
+            formulaStatement: { title: "Arithmetic Series Sum", latex: "S_n = \\frac{n}{2}[2a + (n - 1)d]" },
+            givenValues: `a = ${a}, \\quad d = ${d}, \\quad n = ${n}`,
+            substitution: `S_{${n}} = ${cleanS}`,
+            intermediateSteps: inter,
+            finalResult: `S_{${n}} = ${cleanS}`,
+            answer: `${cleanS}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "S_n = \\frac{n}{2}(2a + (n-1)d)", note: "AP Sum" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `S_{${n}} = ${cleanS}`, note: "Sum verified" }
+            ]
+          };
+        }
+      },
+      {
+        id: "thm_gp_sum_sub",
+        title: "2. Geometric Series Sum (GP)",
+        desc: "Calculate sum Sₙ given first term a, common ratio r (r ≠ 1), and count n",
+        latex: "S_n = \\frac{a(1 - r^n)}{1 - r} \\quad (r \\neq 1)",
+        template: "a * (1 - r^n) / (1 - r)",
+        vars: [
+          { id: "a", label: "First Term a", default: 2, type: "number" },
+          { id: "r", label: "Common Ratio r (≠ 1)", default: 3, type: "number" },
+          { id: "n", label: "Number of Terms n", default: 5, type: "number" }
+        ],
+        compute(v) {
+          const a = parseFloat(v.a), r = parseFloat(v.r), n = Math.round(parseFloat(v.n));
+          if (n <= 0) return { error: "Number of terms n must be positive." };
+          if (r === 1) return { error: "Common ratio r cannot be 1." };
+          const rn = Math.pow(r, n);
+          const sum = a * (1 - rn) / (1 - r);
+          const cleanS = parseFloat(sum.toFixed(4));
+          const inter = [
+            { title: "Exponential Power rⁿ", expression: `(${r})^{${n}} = ${rn}`, note: "Ratio power" },
+            { title: "Numerator & Denominator", expression: `\\frac{${a}(1 - ${rn})}{${1 - r}} = ${cleanS}`, note: "GP Sum quotient" }
+          ];
+          return {
+            formulaStatement: { title: "Geometric Series Sum", latex: "S_n = \\frac{a(1 - r^n)}{1 - r}" },
+            givenValues: `a = ${a}, \\quad r = ${r}, \\quad n = ${n}`,
+            substitution: `S_{${n}} = ${cleanS}`,
+            intermediateSteps: inter,
+            finalResult: `S_{${n}} = ${cleanS}`,
+            answer: `${cleanS}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "S_n = \\frac{a(1 - r^n)}{1 - r}", note: "GP Sum" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `S_{${n}} = ${cleanS}`, note: "Sum verified" }
+            ]
+          };
+        }
       }
     ]
   },
+
+  // ================= GROUP 9: TOPOLOGY & POLYHEDRA =================
   {
-    id: "thm_geometric_series",
+    id: "thm_group_topology",
     category: "Theorems",
-    subCategory: "Algebra",
-    title: "Geometric Series Sum",
-    subtitle: "Sum of n terms of a geometric progression: Sₙ = a(1 - rⁿ) / (1 - r)",
-    latex: "S_n = \\frac{a(1 - r^n)}{1 - r} \\quad (r \\neq 1)",
+    subCategory: "Geometry",
+    title: "Topology & Polyhedral Theorems",
+    subtitle: "Euler's Polyhedral Formula (V - E + F = 2) and Topological Characteristic",
+    latex: "V - E + F = 2 \\implies E = V + F - 2, \\quad \\chi = V - E + F",
     subFormulas: [
       {
-        id: "thm_geometric_series_calc",
-        title: "Sum of First n Terms (GP)",
-        desc: "Calculate sum Sₙ given first term a, common ratio r (r ≠ 1), and term count n",
-        latex: "S_n = \\frac{a(1 - r^n)}{1 - r}",
-        template: "a * (1 - r^n) / (1 - r)",
-        vars: [{"id":"a","label":"First Term a","default":2,"type":"number"},{"id":"r","label":"Common Ratio r (r ≠ 1)","default":3,"type":"number"},{"id":"n","label":"Number of Terms n","default":5,"type":"number"}],
-        compute: (v) => {
-        const a = parseFloat(v.a), r = parseFloat(v.r), n = Math.round(parseFloat(v.n));
-        if (n <= 0) return { error: "Number of terms n must be positive." };
-        if (r === 1) return { error: "Common ratio r cannot be 1 (for r = 1, sum is n · a)." };
-        const rn = Math.pow(r, n);
-        const sum = a * (1 - rn) / (1 - r);
-        const cleanS = parseFloat(sum.toFixed(4));
-        return {
-          formulaStatement: { title: "Geometric Series Sum", latex: "S_n = \\frac{a(1 - r^n)}{1 - r}" },
-          givenValues: `a = ${a}, \\quad r = ${r}, \\quad n = ${n}`,
-          substitution: `S_{${n}} = \\frac{${a}(1 - (${r})^{${n}})}{1 - ${r}} = \\frac{${a}(1 - ${rn})}{${1 - r}}`,
-          intermediateSteps: [
-            { title: "Compute Power rⁿ", expression: `(${r})^{${n}} = ${rn}`, note: "Ratio raised to nth power" },
-            { title: "Evaluate Numerator", expression: `${a} \\times (1 - ${rn}) = ${a * (1 - rn)}`, note: "a(1 - rⁿ)" },
-            { title: "Evaluate Denominator & Divide", expression: `\\frac{${a * (1 - rn)}}{${1 - r}} = ${cleanS}`, note: "Finite geometric series sum" }
-          ],
-          finalResult: `S_{${n}} = ${cleanS}`,
-          answer: `${cleanS}`,
-          steps: [
-            { title: "Step 1: Formula Statement", expression: "S_n = \\frac{a(1 - r^n)}{1 - r}", note: "Geometric progression sum" },
-            { title: "Step 2: Given Values", expression: `a = ${a}, \\; r = ${r}, \\; n = ${n}`, note: "Base parameters" },
-            { title: "Step 3: Power Term", expression: `r^n = ${rn}`, note: "Calculate rⁿ" },
-            { title: "Step 4: Ratio Quotient", expression: `${a*(1-rn)}/${1-r}`, note: "Divide numerator by 1-r" },
-            { title: "Step 5: Final Result", expression: `S_{${n}} = ${cleanS}`, note: "Sum verified" }
-          ]
-        };
-      }
+        id: "thm_polyhedron_sub",
+        title: "1. Euler's Polyhedral Formula (Edges E)",
+        desc: "Calculate number of edges E given vertex count V and face count F of convex polyhedron",
+        latex: "E = V + F - 2",
+        template: "V + F - 2",
+        vars: [
+          { id: "V", label: "Vertices (V)", default: 8, type: "number" },
+          { id: "F", label: "Faces (F)", default: 6, type: "number" }
+        ],
+        compute(v) {
+          const V = Math.round(parseFloat(v.V)), F = Math.round(parseFloat(v.F));
+          if (V < 4 || F < 4) return { error: "A polyhedron must have at least 4 vertices and 4 faces." };
+          const E = V + F - 2;
+          const inter = [
+            { title: "Sum Vertices and Faces", expression: `V + F = ${V} + ${F} = ${V + F}`, note: "Sum of 0D and 2D elements" },
+            { title: "Subtract Euler Invariant 2", expression: `${V + F} - 2 = ${E}`, note: "Edges count" }
+          ];
+          return {
+            formulaStatement: { title: "Euler's Polyhedral Formula", latex: "V - E + F = 2 \\implies E = V + F - 2" },
+            givenValues: `V = ${V}, \\quad F = ${F}`,
+            substitution: `E = ${V} + ${F} - 2 = ${E}`,
+            intermediateSteps: inter,
+            finalResult: `E = ${E} \\text{ edges}`,
+            answer: `${E}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "V - E + F = 2", note: "Euler polyhedron formula" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `E = ${E}`, note: "Edges count evaluated" }
+            ]
+          };
+        }
+      },
+      {
+        id: "thm_euler_char_sub",
+        title: "2. Euler Characteristic (χ = V - E + F)",
+        desc: "Calculate Euler characteristic invariant χ of a polygon mesh or surface",
+        latex: "\\chi = V - E + F",
+        template: "V - E + F",
+        vars: [
+          { id: "V", label: "Vertices (V)", default: 8, type: "number" },
+          { id: "E", label: "Edges (E)", default: 12, type: "number" },
+          { id: "F", label: "Faces (F)", default: 6, type: "number" }
+        ],
+        compute(v) {
+          const V = Math.round(parseFloat(v.V)), E = Math.round(parseFloat(v.E)), F = Math.round(parseFloat(v.F));
+          const chi = V - E + F;
+          const inter = [
+            { title: "Alternating Sum", expression: `${V} - ${E} + ${F} = ${chi}`, note: "Euler characteristic" },
+            { title: "Topology Classification", expression: `\\chi = ${chi} \\implies ${chi === 2 ? 'Convex Polyhedron / Sphere S²' : chi === 0 ? 'Torus T²' : 'Higher-genus surface'}`, note: "Topological manifold invariant" }
+          ];
+          return {
+            formulaStatement: { title: "Euler Characteristic", latex: "\\chi = V - E + F" },
+            givenValues: `V = ${V}, \\; E = ${E}, \\; F = ${F}`,
+            substitution: `\\chi = ${V} - ${E} + ${F} = ${chi}`,
+            intermediateSteps: inter,
+            finalResult: `\\chi = ${chi}`,
+            answer: `χ = ${chi}`,
+            steps: [
+              { title: "Step 1: Formula Statement", expression: "\\chi = V - E + F", note: "Topological invariant" },
+              ...inter,
+              { title: "Step 5: Final Result", expression: `\\chi = ${chi}`, note: "Characteristic verified" }
+            ]
+          };
+        }
       }
     ]
   }
@@ -10343,7 +10385,7 @@ const FormulaSuggestions = {
       return `
         <div class="inline-flex items-center gap-1 bg-white dark:bg-gray-800 px-2 py-1 rounded-xl border border-dashed border-sage-green/60 shadow-xs">
           <span class="font-mono text-xs font-bold text-gray-500 dark:text-gray-400">${slot.label || slot.id}:</span>
-          <input type="text" class="pm-slot-input" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-slot="${slot.id}" value="${this.escapeHtml(val)}" placeholder="${slot.ph || slot.id}" oninput="FormulaSuggestions.onSlotChange('${slot.id}', this.value)" />
+          <input type="text" class="pm-slot-input" readonly inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-slot="${slot.id}" value="${this.escapeHtml(val)}" placeholder="${slot.ph || slot.id}" oninput="FormulaSuggestions.onSlotChange('${slot.id}', this.value)" />
         </div>
       `;
     }).join('');
@@ -11725,9 +11767,95 @@ const UI = {
 };
 
 // Global Modal Controls with Strict Root Reset for Formulas Modal
+/**
+ * HARDWARE BACK BUTTON & NAVIGATION CONTROLLER (@capacitor/app)
+ * Gracefully unwinds active sub-views, formula details, and modals before exiting
+ */
+const HardwareBackHandler = {
+  init() {
+    // 1. Android Capacitor Hardware Back Button
+    const CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (CapApp && typeof CapApp.addListener === 'function') {
+      try {
+        CapApp.addListener('backButton', ({ canGoBack }) => {
+          this.handleBack(canGoBack);
+        });
+      } catch (err) {
+        console.warn('Capacitor App backButton listener note:', err);
+      }
+    }
+
+    // 2. Popstate listener for mobile browser / PWA back navigation
+    window.addEventListener('popstate', (e) => {
+      this.handleBack(false);
+    });
+  },
+
+  handleBack(canGoBack) {
+    // A. Close active long-press sub-menu
+    const longPress = document.getElementById('longPressPopup');
+    if (longPress && !longPress.classList.contains('hidden')) {
+      longPress.classList.add('hidden');
+      return;
+    }
+
+    // B. Dismiss active Photomath suggestion template or dropdown
+    const pmCard = document.getElementById('photomathTemplateCard');
+    const dropDown = document.getElementById('formulaSuggestionDropdown');
+    if ((pmCard && !pmCard.classList.contains('hidden')) || (dropDown && !dropDown.classList.contains('hidden'))) {
+      if (typeof FormulaSuggestions !== 'undefined' && FormulaSuggestions.dismissTemplate) {
+        FormulaSuggestions.dismissTemplate();
+        return;
+      }
+    }
+
+    // C. Formula Library Hierarchy: Detail -> SubMenu -> List -> Close Modal
+    const formulasModal = document.getElementById('formulasModal');
+    if (formulasModal && !formulasModal.classList.contains('hidden')) {
+      const detailView = document.getElementById('formulaDetailView');
+      const subMenuView = document.getElementById('formulaSubMenuView');
+      if (detailView && !detailView.classList.contains('hidden')) {
+        FormulaEngine.backFromDetail();
+        return;
+      }
+      if (subMenuView && !subMenuView.classList.contains('hidden')) {
+        FormulaEngine.backFromSubMenu();
+        return;
+      }
+      closeModal('formulasModal');
+      return;
+    }
+
+    // D. Close any other active modal in hierarchical priority
+    const modalIds = ['solutionModal', 'writeModal', 'cameraModal', 'settingsModal', 'profileModal', 'recentsListModal'];
+    for (const id of modalIds) {
+      const el = document.getElementById(id);
+      if (el && !el.classList.contains('hidden')) {
+        closeModal(id);
+        return;
+      }
+    }
+
+    // E. If browser history exists, step back
+    if (canGoBack && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    // F. At dashboard home screen: exit app via Capacitor App plugin
+    const CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (CapApp && typeof CapApp.exitApp === 'function') {
+      CapApp.exitApp();
+    }
+  }
+};
+
 function openModal(id) {
   const el = document.getElementById(id);
   if (el) el.classList.remove('hidden');
+  try {
+    history.pushState({ modal: id }, '');
+  } catch (_) {}
   if (id === 'cameraModal') {
     Ocr.startCamera();
   } else if (id === 'writeModal') {
@@ -11994,6 +12122,8 @@ function initHorizontalScrollWheel() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  ThemeManager.init();
+  HardwareBackHandler.init();
   Store.renderHomeChips();
   Store.updateProfileCount();
   UI.init();
