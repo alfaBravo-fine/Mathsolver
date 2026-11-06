@@ -306,17 +306,28 @@ const Ocr = {
     const promptBadge = document.getElementById('cameraPromptBadge');
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
       });
-      video.srcObject = this.stream;
-      video.classList.remove('hidden');
+      if (video) {
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('autoplay', 'true');
+        video.muted = true;
+        video.srcObject = this.stream;
+        video.classList.remove('hidden');
+      }
       this.track = this.stream.getVideoTracks()[0];
-      promptBadge.innerText = "Center equation in frame";
+      if (promptBadge) promptBadge.innerText = "Center equation in frame";
     } catch (err) {
       console.warn("Camera access note:", err);
-      video.classList.add('hidden');
-      promptBadge.innerText = "Camera unavailable. Tap image icon to upload photo.";
+      if (video) video.classList.add('hidden');
+      if (promptBadge) promptBadge.innerText = "Camera permission required. Tap Retry Camera to allow access.";
     }
+  },
+
+  retryCamera() {
+    this.stopCamera();
+    return this.startCamera();
   },
 
   stopCamera() {
@@ -343,8 +354,8 @@ const Ocr = {
 
   async captureFrame() {
     const video = document.getElementById('webcam');
-    if (!this.stream || video.videoWidth === 0) {
-      this.triggerFileUpload();
+    if (!this.stream || !video || video.videoWidth === 0) {
+      await this.retryCamera();
       return;
     }
     const canvas = document.createElement('canvas');
@@ -352,30 +363,9 @@ const Ocr = {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toDataURL('image/png');
+    this.stopCamera();
     await this.processImage(canvas);
-  },
-
-  triggerFileUpload() {
-    document.getElementById('ocrFileInput').click();
-  },
-
-  async handleFileSelected(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    const img = new Image();
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        await this.processImage(canvas);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
   },
 
   preprocessCanvas(srcCanvas) {
@@ -497,28 +487,20 @@ const Ocr = {
 
     try {
       let detectedText = "";
-      if (CONFIG.MATHPIX_APP_ID && CONFIG.MATHPIX_APP_KEY) {
-        overlayText.innerText = "Analyzing with Mathpix API...";
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        const response = await fetch("https://api.mathpix.com/v3/text", {
-          method: "POST",
-          headers: { "content-type": "application/json", "app_id": CONFIG.MATHPIX_APP_ID, "app_key": CONFIG.MATHPIX_APP_KEY },
-          body: JSON.stringify({ src: dataUrl, formats: ["text", "latex_styled"] })
-        });
-        const data = await response.json();
-        detectedText = (data.latex_styled || data.text || "").replace(/\\/g, '');
-      } else {
-        overlayText.innerText = "Enhancing contrast & OCR...";
-        const processed = this.preprocessCanvas(canvas);
-        const res = await Tesseract.recognize(processed, 'eng', {
-          logger: m => {
-            if (m.status === 'recognizing text' && m.progress) {
-              overlayText.innerText = `Recognizing math (${Math.round(m.progress * 100)}%)...`;
-            }
-          }
-        });
-        detectedText = res.data.text || "";
-      }
+      overlayText.innerText = "Enhancing contrast & running 100% offline OCR...";
+      const processed = this.preprocessCanvas(canvas);
+      const origin = window.location && window.location.origin && window.location.origin !== 'null' ? window.location.origin : '';
+      const prefix = origin ? `${origin}/vendor/tesseract` : './vendor/tesseract';
+      const worker = await Tesseract.createWorker('eng', 1, {
+        workerPath: `${prefix}/worker.min.js`,
+        corePath: prefix,
+        langPath: `${prefix}/lang`,
+        workerBlobURL: false,
+        gzip: true
+      });
+      const res = await worker.recognize(processed);
+      await worker.terminate();
+      detectedText = (res && res.data && res.data.text) || "";
 
       const cleaned = this.cleanMathText(detectedText);
       closeModal('cameraModal');
@@ -962,7 +944,7 @@ async function handleWriteSubmit() {
 
 function toggleFlash() { Ocr.toggleFlash(); }
 function capturePhoto() { Ocr.captureFrame(); }
-function triggerUpload() { Ocr.triggerFileUpload(); }
+function retryCameraAccess() { Ocr.retryCamera(); }
 
 window.addEventListener('DOMContentLoaded', () => {
   Store.renderHomeChips();

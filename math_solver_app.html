@@ -49,7 +49,7 @@
   <script id="MathJax-script" async src="./vendor/tex-svg.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    /* Local system geometric font stack for 100% offline mobile & desktop rendering */
     
     *, ::before, ::after {
       box-sizing: border-box;
@@ -547,9 +547,6 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="fixed top-4 z-[9999] flex flex-col items-center gap-2 pointer-events-none w-full max-w-sm px-4"></div>
 
-  <!-- Hidden OCR File Input -->
-  <input type="file" id="ocrFileInput" accept="image/*" class="hidden" onchange="Ocr.handleFileSelected(event)" />
-
   <!-- Main Mobile/Tablet Device Container frame (Auto-scaling across all 16:9 to 20:9 screens) -->
   <main class="w-full max-w-[440px] bg-white dark:bg-gray-900 rounded-none sm:rounded-[40px] shadow-2xl p-4 sm:p-6 sm:p-7 relative overflow-hidden border-0 sm:border sm:border-gray-100 dark:sm:border-gray-800 min-h-[100dvh] sm:min-h-[720px] flex flex-col justify-between">
     
@@ -625,7 +622,13 @@
     <div class="mt-4">
       <div class="flex items-center justify-between text-xs font-bold tracking-wider text-gray-400 dark:text-gray-500 mb-3 px-1">
         <span>RECENT</span>
-        <button onclick="openModal('recentsListModal')" class="text-sage-green hover:underline cursor-pointer font-bold">See all</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="Store.openBatchSolve()" class="px-2.5 py-1 rounded-full bg-sage-green/10 text-sage-green hover:bg-sage-green/20 transition cursor-pointer font-bold flex items-center gap-1 text-[11px]" title="Select multiple past problems & export combined PDF">
+            <i class="fa-solid fa-layer-group text-[10px]"></i>
+            <span>Batch Solve</span>
+          </button>
+          <button onclick="openModal('recentsListModal')" class="text-sage-green hover:underline cursor-pointer font-bold">See all</button>
+        </div>
       </div>
 
       <!-- Recents Horizontal Chips (rendered dynamically from Store) -->
@@ -1081,46 +1084,119 @@
       </div>
     </div>
 
-    <!-- 3. CAMERA SCANNER MODAL -->
-    <div id="cameraModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex flex-col items-center justify-between p-4 sm:p-6 pt-[max(1rem,var(--safe-top))] pb-[max(1.25rem,var(--safe-bottom))] pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))]">
-      <div class="w-full max-w-[420px] flex justify-between items-center text-white">
-        <div class="flex items-center gap-2">
+    <!-- 3. IN-APP CAMERA SCANNER MODAL (LIVE HTML5 GETUSERMEDIA STREAM, DIGITAL ZOOM & PNG SNAPSHOT PIPELINE) -->
+    <div id="cameraModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex flex-col items-center justify-between p-4 sm:p-6 pt-[max(1rem,var(--safe-top))] pb-[max(1.25rem,var(--safe-bottom))] pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))]">
+      <!-- Top Bar -->
+      <div class="w-full max-w-[440px] flex justify-between items-center text-white">
+        <div class="flex items-center gap-2.5">
           <i class="fa-solid fa-camera text-sage-green"></i>
-          <span class="font-bold text-sm">Snap Math Problem</span>
+          <div>
+            <div class="font-bold text-sm leading-tight">In-App Math Scanner</div>
+            <div id="cameraAfStatus" class="text-[11px] text-white/70 font-mono tabular-nums">AF: Continuous · Back Camera</div>
+          </div>
         </div>
-        <button onclick="closeModal('cameraModal')" aria-label="Close Camera" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 cursor-pointer">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <!-- Camera Framing Viewfinder -->
-      <div class="relative w-full max-w-[340px] aspect-[3/4] rounded-3xl border-2 border-white/40 overflow-hidden bg-gray-900 flex flex-col items-center justify-center">
-        <video id="webcam" class="absolute inset-0 w-full h-full object-cover hidden" autoplay playsinline muted></video>
-        
-        <div class="absolute inset-6 border-2 border-dashed border-sage-green/70 rounded-2xl pointer-events-none flex items-center justify-center">
-          <div class="scan-line absolute left-2 right-2 h-0.5 bg-sage-green shadow-[0_0_8px_#708764]"></div>
-          <span id="cameraPromptBadge" class="text-xs text-white/80 bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-md text-center max-w-[220px]">
-            Center equation in frame
-          </span>
-        </div>
-
-        <div id="cameraLoadingOverlay" class="absolute inset-0 bg-black/75 z-20 hidden flex flex-col items-center justify-center p-4 text-center">
-          <div class="w-10 h-10 border-4 border-sage-green border-t-transparent rounded-full animate-spin mb-3"></div>
-          <span id="cameraLoadingText" class="text-xs text-white font-bold">Scanning equation...</span>
-          <span class="text-[10px] text-white/60 mt-1">Extracting mathematical symbols</span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="handwritingModeBtn" onclick="Ocr.toggleHandwritingMode()" class="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer" title="Toggle adaptive shadow removal and stroke sharpening for handwritten notes">
+            <i class="fa-solid fa-pen-nib text-sage-green text-xs"></i>
+            <span id="handwritingModeLabel">Handwriting: ON</span>
+          </button>
+          <button type="button" onclick="closeModal('cameraModal')" aria-label="Close Camera" class="min-w-[44px] min-h-[44px] rounded-full bg-white/15 flex items-center justify-center text-white hover:bg-white/25 transition cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
       </div>
 
-      <!-- Camera Controls -->
-      <div class="w-full max-w-[420px] flex items-center justify-around">
-        <button onclick="toggleFlash()" aria-label="Toggle Camera Flash" class="text-white/80 hover:text-white p-3 rounded-full hover:bg-white/10 transition cursor-pointer">
+      <!-- Center Viewfinder & Clean Permission/Retry Fallback Banner -->
+      <div class="w-full max-w-[360px] flex-1 flex flex-col items-center justify-center my-2 min-h-0">
+        <!-- Fallback Banner when Camera Permission is Denied or Stream Unavailable -->
+        <div id="cameraPermissionBanner" class="hidden w-full mb-3 p-4 rounded-2xl bg-gray-900/95 border border-white/15 text-white shadow-xl">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sage-green/20 text-sage-green flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-video-slash text-base"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 id="cameraFallbackTitle" class="text-sm font-bold text-white mb-1">Camera Access Required</h3>
+              <p id="cameraPermissionReason" class="text-xs text-gray-300 leading-relaxed mb-3">
+                Allow camera access to start the live viewfinder and scan equations offline.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="cameraRetryBtn" onclick="Ocr.retryCamera()" class="min-h-[44px] px-4 py-2 rounded-xl bg-sage-green text-white text-xs font-bold hover:opacity-90 active:scale-95 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+                  <i class="fa-solid fa-rotate-right text-xs"></i>
+                  <span>Retry Camera</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Video Viewfinder with Digital Zoom, Tap-to-Focus & Snapshot Preview -->
+        <div id="cameraViewfinderBox" onclick="Ocr.handleViewfinderTap(event)" class="relative w-full aspect-[3/4] max-h-[54dvh] rounded-3xl border-2 border-white/35 overflow-hidden bg-gray-950 flex flex-col items-center justify-center cursor-crosshair select-none">
+          <video id="webcam" class="w-full h-full object-cover hidden transition-transform duration-100" autoplay playsinline muted></video>
+          <img id="capturedSnapshotPreview" alt="Captured Math Snapshot" class="hidden w-full h-full object-cover" />
+
+          <!-- Target Equation Framing Guide -->
+          <div class="absolute inset-6 border-2 border-dashed border-sage-green/75 rounded-2xl pointer-events-none flex flex-col items-center justify-between py-3 px-2">
+            <span class="text-[11px] font-medium text-white/85 bg-black/65 px-3 py-1 rounded-lg backdrop-blur-xs">
+              Tap anywhere to autofocus
+            </span>
+            <div class="scan-line absolute left-2 right-2 h-0.5 bg-sage-green shadow-[0_0_8px_#708764]"></div>
+            <span id="cameraPromptBadge" class="text-xs text-white/90 bg-black/70 px-3.5 py-1.5 rounded-xl backdrop-blur-md text-center max-w-[240px]">
+              Align formula inside frame
+            </span>
+          </div>
+
+          <!-- Dynamic Tap-to-Focus Reticle Indicator -->
+          <div id="cameraFocusRing" class="hidden absolute w-14 h-14 -ml-7 -mt-7 rounded-full border-2 border-sage-green shadow-[0_0_12px_rgba(112,135,100,0.8)] pointer-events-none transition-transform duration-150 scale-100"></div>
+
+          <!-- Multi-Stage Offline Pipeline Progress Overlay -->
+          <div id="cameraLoadingOverlay" class="absolute inset-0 bg-black/85 backdrop-blur-xs z-20 hidden flex flex-col items-center justify-center p-5 text-center">
+            <div class="w-11 h-11 border-4 border-sage-green border-t-transparent rounded-full animate-spin mb-3"></div>
+            <span id="cameraLoadingText" class="text-sm text-white font-bold">Preprocessing Image...</span>
+            <span id="cameraLoadingSubtext" class="text-xs text-white/70 mt-1 max-w-[240px]">Running 100% on-device adaptive filter &amp; OCR</span>
+            <div class="w-48 h-1.5 bg-white/15 rounded-full overflow-hidden mt-3">
+              <div id="cameraProgressBar" class="h-full bg-sage-green transition-all duration-150" style="width: 15%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Digital Zoom Control Slider (1.0x - 4.0x) -->
+        <div id="cameraZoomControls" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" class="w-full mt-2.5 px-3.5 py-2 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center gap-2.5 text-white">
+          <button type="button" onclick="Ocr.stepZoom(-0.5)" aria-label="Zoom Out" title="Zoom Out" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer active:scale-95 transition">
+            <i class="fa-solid fa-magnifying-glass-minus"></i>
+          </button>
+          <input
+            type="range"
+            id="cameraZoomSlider"
+            min="1"
+            max="4"
+            step="0.1"
+            value="1"
+            oninput="Ocr.setZoom(this.value)"
+            onchange="Ocr.setZoom(this.value)"
+            aria-label="Digital Zoom Level"
+            class="flex-1 h-1.5 bg-white/25 rounded-lg appearance-none cursor-pointer accent-[#708764]"
+          />
+          <button type="button" onclick="Ocr.stepZoom(0.5)" aria-label="Zoom In" title="Zoom In" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer active:scale-95 transition">
+            <i class="fa-solid fa-magnifying-glass-plus"></i>
+          </button>
+          <button type="button" id="cameraZoomValue" onclick="Ocr.resetZoom()" title="Reset Zoom to 1.0x" class="min-w-[46px] px-2 py-1 rounded-lg bg-sage-green text-white font-mono text-[11px] font-extrabold tabular-nums text-center shrink-0 cursor-pointer hover:opacity-90 transition">
+            1.0×
+          </button>
+        </div>
+      </div>
+
+      <!-- Camera Controls (All >= 48px touch targets) -->
+      <div class="w-full max-w-[440px] flex items-center justify-around pt-1">
+        <button type="button" onclick="toggleFlash()" aria-label="Toggle Camera Flash" title="Toggle Flash" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
           <i class="fa-solid fa-bolt text-lg"></i>
         </button>
-        <button onclick="capturePhoto()" aria-label="Capture Math Photo" class="w-16 h-16 rounded-full border-4 border-white bg-sage-green flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer">
+
+        <button type="button" id="capturePhotoBtn" onclick="capturePhoto()" aria-label="Capture Snapshot and Solve Math" title="Capture & Solve" class="w-16 h-16 rounded-full border-4 border-white bg-sage-green flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer">
           <div class="w-12 h-12 rounded-full border-2 border-white"></div>
         </button>
-        <button onclick="triggerUpload()" aria-label="Upload Photo from Device" class="text-white/80 hover:text-white p-3 rounded-full hover:bg-white/10 transition cursor-pointer">
-          <i class="fa-solid fa-image text-lg"></i>
+
+        <button type="button" onclick="Ocr.refocusCenter()" aria-label="Refocus Camera" title="Refocus Viewfinder" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
+          <i class="fa-solid fa-crosshairs text-lg"></i>
         </button>
       </div>
     </div>
@@ -1157,6 +1233,17 @@
 
         <!-- Printable Container for PDF Export -->
         <div id="solutionPrintContainer" class="space-y-3.5 flex-1">
+
+          <!-- Detected Question Type, Formula Category & Extracted Parameters Summary -->
+          <div id="solutionClassificationBanner" class="hidden px-3.5 py-2.5 rounded-2xl bg-sage-green/10 dark:bg-sage-green/15 border border-sage-green/25">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <div class="font-bold text-sage-green truncate" id="solutionDetectedCategory">Algebra · Equation</div>
+              <button type="button" onclick="UI.editCurrentSolution()" class="text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:text-sage-green underline shrink-0 cursor-pointer">
+                Edit Input
+              </button>
+            </div>
+            <div id="solutionExtractedParams" class="text-xs text-gray-700 dark:text-gray-300 font-mono mt-0.5 tabular-nums break-words"></div>
+          </div>
           
           <!-- Header Query (Input Problem) -->
           <div class="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-2xl border border-gray-100 dark:border-gray-700/60">
@@ -1350,20 +1437,15 @@
           </div>
         </div>
 
-        <!-- Technical Information -->
-        <div class="space-y-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 mb-4">
-          <div class="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl flex justify-between items-center">
-            <span class="text-gray-500 dark:text-gray-400">Math Engine</span>
-            <span class="text-gray-800 dark:text-gray-200 font-mono text-[11px]">Math.js v12 + MathJax 3</span>
-          </div>
-          <div class="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl flex justify-between items-center">
-            <span class="text-gray-500 dark:text-gray-400">PDF Generator</span>
-            <span class="text-gray-800 dark:text-gray-200 font-mono text-[11px]">html2pdf.js / jsPDF</span>
-          </div>
-          <div class="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl flex justify-between items-center">
-            <span class="text-gray-500 dark:text-gray-400">Offline OCR</span>
-            <span class="text-gray-800 dark:text-gray-200 font-mono text-[11px]">Tesseract.js v5 (100% Client-Side)</span>
-          </div>
+        <!-- About Us Section -->
+        <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 mb-4">
+          <h3 class="text-xs font-extrabold text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-heart text-sage-green text-xs"></i>
+            <span>About Us</span>
+          </h3>
+          <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed font-normal">
+            Math Solver is independently crafted and developed by Shaheer Ahmad, a passionate solo software developer based in Pakistan. Built from the ground up with a vision to make complex mathematics accessible, fast, and interactive, this app brings advanced calculation, OCR, and solving tools right to your pocket. Thank you for supporting independent creation!
+          </p>
         </div>
 
         <button onclick="Store.clearHistory()" class="w-full p-3 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-300 hover:bg-red-100 rounded-xl flex justify-between items-center transition cursor-pointer text-xs font-bold">
@@ -1373,20 +1455,40 @@
       </div>
     </div>
 
-    <!-- 6. SEE ALL RECENTS MODAL -->
+    <!-- 6. SEE ALL RECENTS & BATCH SOLVE MODAL -->
     <div id="recentsListModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[420px] max-h-[85dvh] rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl flex flex-col">
-        <div class="flex justify-between items-center mb-4">
+      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[440px] max-h-[88dvh] rounded-t-[32px] sm:rounded-[32px] p-5 sm:p-6 shadow-2xl flex flex-col">
+        <div class="flex justify-between items-center mb-3">
           <div class="flex items-center gap-2">
             <i class="fa-solid fa-clock-rotate-left text-sage-green"></i>
             <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">Problem History</h2>
           </div>
-          <button onclick="closeModal('recentsListModal')" aria-label="Close recents modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center cursor-pointer">
-            <i class="fa-solid fa-xmark"></i>
+          <div class="flex items-center gap-2">
+            <button type="button" id="batchSolveToggleBtn" onclick="Store.toggleBatchMode()" class="px-3 py-1.5 rounded-xl bg-sage-green/15 text-sage-green hover:bg-sage-green/25 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer">
+              <i class="fa-solid fa-layer-group text-[11px]"></i>
+              <span id="batchSolveToggleLabel">Batch Solve</span>
+            </button>
+            <button onclick="closeModal('recentsListModal')" aria-label="Close recents modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Batch Solve Multi-Select Action Toolbar -->
+        <div id="batchSolveToolbar" class="hidden mb-3 p-3 rounded-2xl bg-sage-green/10 dark:bg-sage-green/15 border border-sage-green/30 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <button type="button" id="batchSelectAllBtn" onclick="Store.toggleSelectAllBatch()" class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-700 dark:text-gray-200 hover:border-sage-green transition cursor-pointer">
+              Select All
+            </button>
+            <span id="batchSelectedCount" class="text-xs font-mono font-bold text-sage-green tabular-nums">0 selected</span>
+          </div>
+          <button type="button" id="batchExportPdfBtn" onclick="Store.exportBatchPDF()" class="px-3.5 py-2 rounded-xl bg-sage-green text-white text-xs font-bold hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+            <i class="fa-solid fa-file-pdf text-xs"></i>
+            <span>Export Combined PDF</span>
           </button>
         </div>
-        
-        <div id="recentsFullListContainer" class="space-y-2 max-h-72 overflow-y-auto pr-1 flex-1">
+
+        <div id="recentsFullListContainer" class="space-y-2 max-h-80 overflow-y-auto pr-1 flex-1">
           <!-- Rendered dynamically by Store.renderFullList() -->
         </div>
 
@@ -1497,8 +1599,7 @@
  */
 
 const CONFIG = {
-  MATHPIX_APP_ID: "",
-  MATHPIX_APP_KEY: ""
+  OFFLINE_ONLY: true
 };
 
 /**
@@ -1943,18 +2044,303 @@ const Store = {
     }).join('');
   },
 
+  batchMode: false,
+  selectedBatchIds: new Set(),
+
+  openBatchSolve() {
+    const history = this.getHistory();
+    this.batchMode = true;
+    this.selectedBatchIds = new Set(history.map(h => h.id));
+    openModal('recentsListModal');
+  },
+
+  toggleBatchMode() {
+    this.batchMode = !this.batchMode;
+    if (!this.selectedBatchIds) this.selectedBatchIds = new Set();
+    if (this.batchMode) {
+      const history = this.getHistory();
+      if (this.selectedBatchIds.size === 0 && history.length > 0) {
+        this.selectedBatchIds = new Set(history.slice(0, Math.min(2, history.length)).map(h => h.id));
+      }
+    } else {
+      this.selectedBatchIds.clear();
+    }
+    this.renderFullList();
+  },
+
+  toggleBatchSelection(itemId) {
+    if (!this.selectedBatchIds) this.selectedBatchIds = new Set();
+    if (this.selectedBatchIds.has(itemId)) {
+      this.selectedBatchIds.delete(itemId);
+    } else {
+      this.selectedBatchIds.add(itemId);
+    }
+    this.renderFullList();
+  },
+
+  toggleSelectAllBatch() {
+    const history = this.getHistory();
+    if (!this.selectedBatchIds) this.selectedBatchIds = new Set();
+    if (this.selectedBatchIds.size >= history.length) {
+      this.selectedBatchIds.clear();
+    } else {
+      this.selectedBatchIds = new Set(history.map(h => h.id));
+    }
+    this.renderFullList();
+  },
+
+  updateBatchToolbar(history) {
+    const toolbar = document.getElementById('batchSolveToolbar');
+    const toggleLabel = document.getElementById('batchSolveToggleLabel');
+    const toggleBtn = document.getElementById('batchSolveToggleBtn');
+    const countEl = document.getElementById('batchSelectedCount');
+    const selectAllBtn = document.getElementById('batchSelectAllBtn');
+    const exportBtn = document.getElementById('batchExportPdfBtn');
+
+    if (!this.selectedBatchIds) this.selectedBatchIds = new Set();
+    const selectedCount = history.filter(h => this.selectedBatchIds.has(h.id)).length;
+
+    if (toolbar) {
+      if (this.batchMode) toolbar.classList.remove('hidden');
+      else toolbar.classList.add('hidden');
+    }
+    if (toggleLabel) {
+      toggleLabel.innerText = this.batchMode ? 'Done' : 'Batch Solve';
+    }
+    if (toggleBtn) {
+      if (this.batchMode) {
+        toggleBtn.className = 'px-3 py-1.5 rounded-xl bg-sage-green text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs';
+      } else {
+        toggleBtn.className = 'px-3 py-1.5 rounded-xl bg-sage-green/15 text-sage-green hover:bg-sage-green/25 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer';
+      }
+    }
+    if (countEl) {
+      countEl.innerText = `${selectedCount} selected`;
+    }
+    if (selectAllBtn) {
+      selectAllBtn.innerText = selectedCount >= history.length && history.length > 0 ? 'Deselect All' : 'Select All';
+    }
+    if (exportBtn) {
+      exportBtn.disabled = selectedCount === 0;
+      exportBtn.classList.toggle('opacity-50', selectedCount === 0);
+    }
+  },
+
+  async exportBatchPDF() {
+    const history = this.getHistory();
+    if (!this.selectedBatchIds) this.selectedBatchIds = new Set();
+    const selectedItems = history.filter(item => this.selectedBatchIds.has(item.id));
+
+    if (selectedItems.length === 0) {
+      showToast("Select at least one past problem to export.", "info");
+      return;
+    }
+
+    const exportBtn = document.getElementById('batchExportPdfBtn');
+    if (exportBtn) {
+      exportBtn.disabled = true;
+      exportBtn.innerHTML = `<div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Solving (${selectedItems.length})...</span>`;
+    }
+
+    try {
+      // Batch-solve each selected problem so every entry has up-to-date category, extracted values & steps
+      const solvedBatch = [];
+      for (const item of selectedItems) {
+        let solved = item;
+        try {
+          if (item.query) {
+            const fresh = await Solver.solve(item.query);
+            if (fresh && !fresh.error) {
+              solved = { ...item, ...fresh };
+            }
+          }
+        } catch (_) {}
+        solvedBatch.push(solved);
+      }
+
+      const jsPDFLib = window.jspdf ? window.jspdf.jsPDF : null;
+      if (jsPDFLib) {
+        const doc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const drawHeader = (pageNum) => {
+          doc.setFillColor(112, 135, 100);
+          doc.rect(0, 0, 210, 20, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.setTextColor(255, 255, 255);
+          doc.text(`MathSolver — Batch Solution Report (${solvedBatch.length} Problems)`, 15, 13);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(235, 245, 235);
+          doc.text(`Page ${pageNum} • ${new Date().toLocaleDateString()}`, 195, 13, { align: 'right' });
+        };
+
+        let pageNum = 1;
+        drawHeader(pageNum);
+        let y = 28;
+
+        const ensureSpace = (neededMm) => {
+          if (y + neededMm > 278) {
+            doc.addPage();
+            pageNum++;
+            drawHeader(pageNum);
+            y = 28;
+          }
+        };
+
+        // Summary Index Card
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        const indexHeight = Math.min(80, 12 + solvedBatch.length * 6);
+        doc.roundedRect(15, y, 180, indexHeight, 2.5, 2.5, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(112, 135, 100);
+        doc.text('INCLUDED PROBLEMS SUMMARY:', 20, y + 6);
+
+        let idxY = y + 12;
+        solvedBatch.slice(0, 10).forEach((prob, i) => {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(31, 41, 55);
+          const qLine = `${i + 1}. ${String(prob.query || '').replace(/\*/g, '·')}`;
+          const aLine = `Ans: ${String(prob.answer || '')}`;
+          doc.text(qLine.slice(0, 52), 20, idxY);
+          doc.setTextColor(20, 83, 45);
+          doc.text(aLine.slice(0, 36), 190, idxY, { align: 'right' });
+          idxY += 6;
+        });
+        y += indexHeight + 7;
+
+        // Detailed Solution Sections
+        solvedBatch.forEach((prob, pIdx) => {
+          ensureSpace(46);
+
+          // Problem Title & Category Bar
+          doc.setFillColor(236, 243, 232);
+          doc.setDrawColor(112, 135, 100);
+          doc.setLineWidth(0.4);
+          doc.roundedRect(15, y, 180, 16, 2.5, 2.5, 'FD');
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(20, 83, 45);
+          const catStr = prob.categoryLabel || (prob.formulaStatement && prob.formulaStatement.title) || 'Mathematical Solution';
+          doc.text(`PROBLEM ${pIdx + 1} OF ${solvedBatch.length}  •  ${catStr.toUpperCase()}`, 20, y + 5.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11.5);
+          doc.setTextColor(17, 24, 39);
+          doc.text(`Q: ${String(prob.query || '').replace(/\*/g, ' · ')}`, 20, y + 12.5);
+          y += 19;
+
+          // Final Answer Box
+          ensureSpace(15);
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(203, 213, 225);
+          doc.roundedRect(15, y, 180, 12, 2, 2, 'FD');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10.5);
+          doc.setTextColor(20, 83, 45);
+          doc.text(`Final Answer: ${String(prob.answer || prob.finalResult || '')}`, 20, y + 7.8);
+          y += 15;
+
+          // Extracted Parameters / Formula
+          if (prob.extractedValues) {
+            ensureSpace(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Extracted Parameters: ${String(prob.extractedValues)}`, 18, y + 4);
+            y += 7;
+          }
+
+          // Step-by-Step Breakdown
+          const steps = (prob.intermediateSteps && prob.intermediateSteps.length > 0)
+            ? prob.intermediateSteps
+            : (prob.steps || []);
+          steps.forEach((step, sIdx) => {
+            ensureSpace(16);
+            doc.setFillColor(252, 252, 253);
+            doc.setDrawColor(229, 231, 235);
+            doc.setLineWidth(0.25);
+            doc.roundedRect(18, y, 174, 14, 1.8, 1.8, 'FD');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(31, 41, 55);
+            doc.text(`Step ${sIdx + 1}: ${String(step.title || '')}`, 22, y + 5.2);
+
+            doc.setFont('courier', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(20, 83, 45);
+            const cleanExpr = String(step.expression || '').replace(/\\quad/g, ' | ').replace(/\\/g, '');
+            doc.text(cleanExpr.slice(0, 82), 22, y + 10.8);
+            y += 16;
+          });
+
+          y += 6;
+        });
+
+        doc.save(`MathSolver_Batch_Solutions_${Date.now()}.pdf`);
+        this.batchMode = false;
+        this.selectedBatchIds.clear();
+        this.renderFullList();
+        showToast(`Exported ${solvedBatch.length} solutions into one PDF! 📄`, "success");
+        return solvedBatch;
+      }
+
+      window.print();
+      return solvedBatch;
+    } catch (err) {
+      console.error("Batch PDF export error:", err);
+      showToast("Could not generate batch PDF.", "error");
+      return [];
+    } finally {
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = `<i class="fa-solid fa-file-pdf text-xs"></i><span>Export Combined PDF</span>`;
+      }
+    }
+  },
+
   renderFullList() {
     const container = document.getElementById('recentsFullListContainer');
     if (!container) return;
     const history = this.getHistory();
+    this.updateBatchToolbar(history);
+
     if (history.length === 0) {
       container.innerHTML = `<div class="p-4 text-center text-xs text-gray-400 dark:text-gray-500">No stored solutions yet. Solve a problem to see it here!</div>`;
       return;
     }
+
     container.innerHTML = history.map((item, idx) => {
       const displayLabel = (item.query || '').replace(/\*/g, '·').replace(/\^2/g, '²').replace(/\^3/g, '³');
       const isFav = this.isFavorite(item);
       const starIcon = isFav ? "fa-solid fa-star text-amber-500" : "fa-regular fa-star text-gray-400 hover:text-amber-500";
+      const isSelected = this.selectedBatchIds && this.selectedBatchIds.has(item.id);
+
+      if (this.batchMode) {
+        return `
+          <div onclick="Store.toggleBatchSelection('${item.id}')" class="p-3 rounded-xl text-xs font-semibold flex items-center gap-3 transition cursor-pointer select-none ${isSelected ? 'bg-sage-green/15 dark:bg-sage-green/25 border-2 border-sage-green text-gray-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-sage-green/50'}">
+            <input
+              type="checkbox"
+              ${isSelected ? 'checked' : ''}
+              onclick="event.stopPropagation(); Store.toggleBatchSelection('${item.id}');"
+              aria-label="Select ${displayLabel} for Batch PDF"
+              class="w-4 h-4 rounded accent-[#708764] cursor-pointer shrink-0"
+            />
+            <div class="flex-1 min-w-0">
+              <div class="font-mono text-gray-800 dark:text-gray-100 truncate">${displayLabel}</div>
+              <div class="text-sage-green font-bold text-[11px] truncate mt-0.5">${item.answer}</div>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected ? 'bg-sage-green text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'} shrink-0">
+              ${isSelected ? 'Included' : 'Tap to add'}
+            </span>
+          </div>
+        `;
+      }
+
       return `
         <div class="p-3 bg-gray-50 dark:bg-gray-800 hover:bg-sage-green/10 dark:hover:bg-sage-green/20 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 flex justify-between items-center transition group">
           <div onclick="closeModal('recentsListModal'); Store.loadRecentByIndex(${idx});" class="flex-1 cursor-pointer truncate mr-2">
@@ -5602,6 +5988,10 @@ const Solver = {
   _solveCache: new Map(),
 
   async solve(rawInput) {
+    if (window.MathScannerEngine && window.MathScannerEngine.solver && typeof window.MathScannerEngine.solver.solve === 'function') {
+      return window.MathScannerEngine.solver.solve(rawInput);
+    }
+
     if (!rawInput || !rawInput.trim()) {
       return {
         query: rawInput,
@@ -5657,44 +6047,75 @@ const Solver = {
       .replace(/∛([0-9a-zA-Z]+)/g, 'cbrt($1)')
       .replace(/∛/g, 'cbrt');
 
+    let result = null;
+    let fallbackCategory = 'Arithmetic · Order of Operations (PEMDAS)';
+
     // 1. DERIVATIVE DETECTION: d/dx(...) or diff(...) or derivative(...)
     const derivMatch = clean.match(/^(?:d\/d([a-zA-Z])|diff|derivative)\s*\(?([^)]+?)\)?$/i);
     if (derivMatch) {
       const respectTo = derivMatch[1] || null;
-      return this.solveDerivative(rawInput, derivMatch[2].trim(), respectTo);
+      fallbackCategory = 'Calculus · Differentiation';
+      result = this.solveDerivative(rawInput, derivMatch[2].trim(), respectTo);
     }
 
     // 2. INTEGRAL DETECTION: integral(...) or integrate(...) or ∫...
-    const intMatch = clean.match(/^(?:integral|integrate)\s*\(?([^)]+?)\)?(?:\s*d([a-zA-Z]))?$/i) || clean.match(/^(?:∫)\s*(.+?)(?:\s*d([a-zA-Z]))?$/i);
-    if (intMatch) {
-      const respectTo = intMatch[2] || null;
-      return this.solveIntegral(rawInput, intMatch[1].trim(), respectTo);
+    if (!result) {
+      const intMatch = clean.match(/^(?:integral|integrate)\s*\(?([^)]+?)\)?(?:\s*d([a-zA-Z]))?$/i) || clean.match(/^(?:∫)\s*(.+?)(?:\s*d([a-zA-Z]))?$/i);
+      if (intMatch) {
+        const respectTo = intMatch[2] || null;
+        fallbackCategory = 'Calculus · Integration';
+        result = this.solveIntegral(rawInput, intMatch[1].trim(), respectTo);
+      }
     }
 
     // 3. SIMULTANEOUS LINEAR SYSTEMS (e.g. 2x + y = 10, x - y = 2)
-    if (this.isSimultaneousSystem(clean)) {
-      return this.solveSystemOfLinearEquations(rawInput, clean);
+    if (!result && this.isSimultaneousSystem(clean)) {
+      fallbackCategory = 'Algebra · Simultaneous Linear System';
+      result = this.solveSystemOfLinearEquations(rawInput, clean);
     }
 
     // 4. EQUATIONS WITH EQUALS SIGN (Linear, Quadratic, Multi-Variable)
-    if (clean.includes('=')) {
-      return this.solveEquation(rawInput, clean);
+    if (!result && clean.includes('=')) {
+      fallbackCategory = /\^2/.test(clean) ? 'Algebra · Quadratic Equation' : 'Algebra · Linear Equation';
+      result = this.solveEquation(rawInput, clean);
     }
 
     // 5. TRIGONOMETRIC EXPRESSIONS: sin(30), cos(45), tan(60)...
-    const trigMatch = clean.match(/^(sin|cos|tan|cot|sec|csc)\s*\(\s*([^)]+)\s*\)$/i);
-    if (trigMatch) {
-      return this.solveTrig(rawInput, trigMatch[1].toLowerCase(), trigMatch[2].trim());
+    if (!result) {
+      const trigMatch = clean.match(/^(sin|cos|tan|cot|sec|csc)\s*\(\s*([^)]+)\s*\)$/i);
+      if (trigMatch) {
+        fallbackCategory = 'Trigonometry · Trigonometric Evaluation';
+        result = this.solveTrig(rawInput, trigMatch[1].toLowerCase(), trigMatch[2].trim());
+      }
     }
 
     // 6. GENERAL POLYNOMIAL / ALGEBRAIC SIMPLIFICATION (variables like x, y, z, a, b, c)
-    const stripped = clean.replace(/[a-zA-Z]+/g, m => ['sqrt','log','ln','abs','exp','pi','e'].includes(m.toLowerCase()) ? '' : m);
-    if (/[a-zA-Z]/.test(stripped)) {
-      return this.solveAlgebraic(rawInput, clean);
+    if (!result) {
+      const stripped = clean.replace(/[a-zA-Z]+/g, m => ['sqrt','log','ln','abs','exp','pi','e'].includes(m.toLowerCase()) ? '' : m);
+      if (/[a-zA-Z]/.test(stripped)) {
+        fallbackCategory = 'Algebra · Polynomial & Exponent Simplification';
+        result = this.solveAlgebraic(rawInput, clean);
+      }
     }
 
     // 7. ARITHMETIC EVALUATION (PEMDAS with Smart Constant Evaluation)
-    return this.solveArithmetic(rawInput, clean);
+    if (!result) {
+      result = this.solveArithmetic(rawInput, clean);
+    }
+
+    if (result && !result.error) {
+      if (window.MathScannerEngine && window.MathScannerEngine.classifyMathProblem) {
+        const cls = window.MathScannerEngine.classifyMathProblem(clean);
+        result.questionType = result.questionType || cls.code;
+        result.categoryLabel = result.categoryLabel || cls.categoryLabel;
+        result.extractedValues = result.extractedValues || cls.extractedSummary;
+      } else {
+        result.categoryLabel = result.categoryLabel || (result.formulaStatement && result.formulaStatement.title) || fallbackCategory;
+        result.extractedValues = result.extractedValues || (result.givenValues ? String(result.givenValues).replace(/\\quad/g, '|').replace(/\\/g, '') : clean);
+      }
+    }
+
+    return result;
   },
 
   isSimultaneousSystem(clean) {
@@ -9890,88 +10311,423 @@ const FormulaEngine = {
 /**
  * CAMERA & OCR ENGINE (Offline Bradley-Roth Local Thresholding)
  */
+/**
+ * 100% OFFLINE CAMERA SCANNER, HANDWRITING ADAPTIVE PREPROCESSOR,
+ * LOCAL TESSERACT.JS V5 WORKER ENGINE & FORMULA CLASSIFIER PIPELINE
+ */
 const Ocr = {
   stream: null,
   track: null,
   flashOn: false,
+  handwritingMode: true,
+  zoomLevel: 1.0,
+  hardwareZoomApplied: 1.0,
+  softwareZoomScale: 1.0,
+  localWorker: null,
+  localWorkerPromise: null,
+  focusMonitorTimer: null,
+  lastFocusTime: 0,
+
+  toggleHandwritingMode() {
+    this.handwritingMode = !this.handwritingMode;
+    const label = document.getElementById('handwritingModeLabel');
+    if (label) {
+      label.innerText = this.handwritingMode ? 'Handwriting: ON' : 'Handwriting: OFF';
+    }
+    showToast(
+      this.handwritingMode
+        ? 'Handwriting adaptive filter enabled'
+        : 'Standard printed text contrast enabled',
+      'info'
+    );
+  },
+
+  setPermissionBanner(visible, reasonText, titleText) {
+    const banner = document.getElementById('cameraPermissionBanner');
+    const reasonEl = document.getElementById('cameraPermissionReason');
+    const titleEl = document.getElementById('cameraFallbackTitle');
+    if (titleEl && titleText) {
+      titleEl.innerText = titleText;
+    }
+    if (reasonEl && reasonText) {
+      reasonEl.innerText = reasonText;
+    }
+    if (banner) {
+      if (visible) banner.classList.remove('hidden');
+      else banner.classList.add('hidden');
+    }
+  },
+
+  updateStageProgress(text, percent, subtext) {
+    const textEl = document.getElementById('cameraLoadingText');
+    const subEl = document.getElementById('cameraLoadingSubtext');
+    const barEl = document.getElementById('cameraProgressBar');
+    if (textEl && text) textEl.innerText = text;
+    if (subEl && subtext) subEl.innerText = subtext;
+    if (barEl && typeof percent === 'number') {
+      barEl.style.width = `${Math.max(5, Math.min(100, percent))}%`;
+    }
+  },
+
+  async setZoom(requestedZoom, silent = false) {
+    const clamped = Math.max(1.0, Math.min(4.0, Math.round((parseFloat(requestedZoom) || 1.0) * 10) / 10));
+    this.zoomLevel = clamped;
+
+    let appliedHw = 1.0;
+    if (this.track && typeof this.track.getCapabilities === 'function') {
+      try {
+        const caps = this.track.getCapabilities();
+        if (caps.zoom && typeof caps.zoom.max === 'number' && caps.zoom.max > 1) {
+          const minZ = typeof caps.zoom.min === 'number' ? caps.zoom.min : 1.0;
+          const targetHw = Math.max(minZ, Math.min(caps.zoom.max, clamped));
+          await this.track.applyConstraints({ advanced: [{ zoom: targetHw }] });
+          appliedHw = targetHw;
+        }
+      } catch (_) {
+        appliedHw = 1.0;
+      }
+    }
+
+    this.hardwareZoomApplied = appliedHw;
+    this.softwareZoomScale = Math.max(1.0, clamped / appliedHw);
+
+    const video = document.getElementById('webcam');
+    if (video) {
+      video.style.transformOrigin = 'center center';
+      video.style.transform = `scale(${this.softwareZoomScale.toFixed(3)})`;
+    }
+
+    const slider = document.getElementById('cameraZoomSlider');
+    if (slider) {
+      slider.value = clamped.toFixed(1);
+    }
+    const badge = document.getElementById('cameraZoomValue');
+    if (badge) {
+      badge.innerText = `${clamped.toFixed(1)}×`;
+    }
+
+    return clamped;
+  },
+
+  stepZoom(delta) {
+    return this.setZoom(this.zoomLevel + delta);
+  },
+
+  resetZoom(silent = false) {
+    return this.setZoom(1.0, silent);
+  },
+
+  async retryCamera() {
+    await this.startCamera();
+  },
+
+  async requestPermission() {
+    await this.startCamera();
+  },
 
   async startCamera() {
     const video = document.getElementById('webcam');
+    const snapshotImg = document.getElementById('capturedSnapshotPreview');
     const promptBadge = document.getElementById('cameraPromptBadge');
+    const afStatus = document.getElementById('cameraAfStatus');
 
-    // 1. Android Capacitor Native Permission Verification
-    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera) {
+    this.stopCamera();
+    this.setPermissionBanner(false);
+    await this.resetZoom(true);
+
+    if (snapshotImg) {
+      snapshotImg.classList.add('hidden');
+      snapshotImg.removeAttribute('src');
+    }
+
+    // 1. Check & smoothly request native Capacitor Camera permission if running on Android/iOS
+    const nativePlugin =
+      window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera;
+
+    if (nativePlugin) {
       try {
-        const CapCamera = window.Capacitor.Plugins.Camera;
-        const check = await CapCamera.checkPermissions();
+        const check = await nativePlugin.checkPermissions();
         if (check.camera !== 'granted') {
-          const req = await CapCamera.requestPermissions({ permissions: ['camera'] });
+          const req = await nativePlugin.requestPermissions({
+            permissions: ['camera']
+          });
           if (req.camera !== 'granted') {
             if (video) video.classList.add('hidden');
-            if (promptBadge) promptBadge.innerText = "Camera permission denied. Tap image icon to upload.";
-            showToast("Camera permission required", "error");
+            this.setPermissionBanner(
+              true,
+              'Camera access is needed to point the live viewfinder at math equations. Tap Retry after granting permission.',
+              'Camera Permission Denied'
+            );
+            if (promptBadge) promptBadge.innerText = 'Camera permission denied';
             return;
           }
         }
       } catch (permErr) {
-        console.warn("Capacitor camera permission check:", permErr);
+        console.warn('Capacitor camera permission check:', permErr);
       }
     }
 
-    // 2. Browser / WebView getUserMedia Stream Attachment
+    // 2. Open true in-app live camera stream via HTML5 navigator.mediaDevices.getUserMedia with facingMode: "environment"
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (video) video.classList.add('hidden');
+      this.setPermissionBanner(
+        true,
+        'In-app camera stream is unavailable on this browser or WebView. Tap Retry Camera to try again.',
+        'Camera Stream Unavailable'
+      );
+      return;
+    }
+
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+          advanced: [{ focusMode: 'continuous' }]
+        },
+        audio: false
+      };
+
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false
+        });
+      }
+
       if (video) {
         video.srcObject = this.stream;
+        video.playsInline = true;
+        video.autoplay = true;
+        video.muted = true;
         video.setAttribute('playsinline', 'true');
         video.setAttribute('autoplay', 'true');
         video.setAttribute('muted', 'true');
         video.classList.remove('hidden');
-      }
-      this.track = this.stream.getVideoTracks()[0];
-      if (promptBadge) promptBadge.innerText = "Center equation in frame";
-    } catch (err) {
-      console.warn("Camera access note:", err);
-      // Fallback for native Capacitor photo capture if getUserMedia fails
-      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera) {
         try {
-          const CapCamera = window.Capacitor.Plugins.Camera;
-          const photo = await CapCamera.getPhoto({
-            quality: 90,
-            allowEditing: false,
-            resultType: 'dataUrl',
-            source: 'CAMERA'
-          });
-          if (photo && photo.dataUrl) {
-            const img = new Image();
-            img.onload = async () => {
-              const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0);
-              await this.processImage(canvas);
-            };
-            img.src = photo.dataUrl;
-            return;
-          }
-        } catch (capErr) {
-          console.warn("Capacitor getPhoto:", capErr);
-        }
+          await video.play();
+        } catch (_) {}
       }
+
+      this.track = this.stream.getVideoTracks()[0] || null;
+      await this.configureContinuousAutoFocus(afStatus);
+      this.startSharpnessAutoFocusMonitor(video, afStatus);
+      this.setPermissionBanner(false);
+      if (promptBadge) promptBadge.innerText = 'Align formula inside frame';
+
+      // Pre-warm local offline Tesseract worker in background while user aims viewfinder
+      this.getOfflineWorker().catch(() => {});
+    } catch (err) {
+      console.warn('Camera stream note:', err);
+      const errName = (err && err.name) || '';
       if (video) video.classList.add('hidden');
-      if (promptBadge) promptBadge.innerText = "Camera unavailable. Tap image icon to upload photo.";
+
+      if (
+        errName === 'NotAllowedError' ||
+        errName === 'PermissionDeniedError' ||
+        errName === 'SecurityError'
+      ) {
+        this.setPermissionBanner(
+          true,
+          'Camera permission was denied. Enable camera access and tap Retry Camera to launch the viewfinder.',
+          'Camera Permission Denied'
+        );
+        if (promptBadge) promptBadge.innerText = 'Permission needed';
+        return;
+      }
+
+      this.setPermissionBanner(
+        true,
+        'Could not start back camera stream. Ensure no other app is using the camera and tap Retry.',
+        'Camera Unavailable'
+      );
+      if (promptBadge) promptBadge.innerText = 'Camera unavailable';
     }
   },
 
+  async configureContinuousAutoFocus(afStatusEl) {
+    if (!this.track || typeof this.track.getCapabilities !== 'function') return;
+    try {
+      const caps = this.track.getCapabilities();
+      const modes = Array.isArray(caps.focusMode) ? caps.focusMode : [];
+      if (modes.includes('continuous')) {
+        await this.track.applyConstraints({
+          advanced: [{ focusMode: 'continuous' }]
+        });
+        if (afStatusEl) afStatusEl.innerText = 'AF: Continuous · Back Camera';
+      } else {
+        if (afStatusEl) afStatusEl.innerText = 'AF: Auto · Back Camera';
+      }
+    } catch (_) {
+      if (afStatusEl) afStatusEl.innerText = 'AF: Auto · Back Camera';
+    }
+  },
+
+  async refocusCenter() {
+    if (!this.stream || !this.track) {
+      await this.startCamera();
+      return;
+    }
+    const ring = document.getElementById('cameraFocusRing');
+    if (ring) {
+      ring.style.left = '50%';
+      ring.style.top = '50%';
+      ring.classList.remove('hidden', 'scale-100');
+      ring.classList.add('scale-110');
+      setTimeout(() => {
+        ring.classList.remove('scale-110');
+        ring.classList.add('scale-100');
+      }, 150);
+      setTimeout(() => {
+        ring.classList.add('hidden');
+      }, 900);
+    }
+    await this.refocusTrack(0.5, 0.5);
+  },
+
+  async handleViewfinderTap(event) {
+    const box = document.getElementById('cameraViewfinderBox');
+    const ring = document.getElementById('cameraFocusRing');
+    if (box && ring && event) {
+      const rect = box.getBoundingClientRect();
+      const relX = Math.max(0.08, Math.min(0.92, (event.clientX - rect.left) / rect.width));
+      const relY = Math.max(0.08, Math.min(0.92, (event.clientY - rect.top) / rect.height));
+      ring.style.left = `${relX * 100}%`;
+      ring.style.top = `${relY * 100}%`;
+      ring.classList.remove('hidden', 'scale-100');
+      ring.classList.add('scale-110');
+      setTimeout(() => {
+        ring.classList.remove('scale-110');
+        ring.classList.add('scale-100');
+      }, 150);
+      setTimeout(() => {
+        ring.classList.add('hidden');
+      }, 900);
+      await this.refocusTrack(relX, relY);
+    }
+  },
+
+  async refocusTrack(normX = 0.5, normY = 0.5) {
+    if (!this.track || typeof this.track.getCapabilities !== 'function') return;
+    const now = Date.now();
+    if (now - this.lastFocusTime < 450) return;
+    this.lastFocusTime = now;
+
+    const afStatus = document.getElementById('cameraAfStatus');
+    try {
+      const caps = this.track.getCapabilities();
+      const modes = Array.isArray(caps.focusMode) ? caps.focusMode : [];
+      const constraint = {};
+      if (caps.pointsOfInterest) {
+        constraint.pointsOfInterest = [{ x: normX, y: normY }];
+      }
+      if (afStatus) afStatus.innerText = 'AF: Refocusing...';
+      if (modes.includes('single-shot')) {
+        constraint.focusMode = 'single-shot';
+        await this.track.applyConstraints({ advanced: [constraint] });
+        setTimeout(async () => {
+          if (this.track && modes.includes('continuous')) {
+            try {
+              await this.track.applyConstraints({
+                advanced: [{ focusMode: 'continuous' }]
+              });
+              if (afStatus) afStatus.innerText = 'AF: Continuous · Sharp';
+            } catch (_) {}
+          }
+        }, 600);
+      } else if (modes.includes('continuous')) {
+        constraint.focusMode = 'continuous';
+        await this.track.applyConstraints({ advanced: [constraint] });
+        if (afStatus) afStatus.innerText = 'AF: Continuous · Sharp';
+      }
+    } catch (_) {}
+  },
+
+  startSharpnessAutoFocusMonitor(video, afStatusEl) {
+    if (this.focusMonitorTimer) {
+      clearInterval(this.focusMonitorTimer);
+      this.focusMonitorTimer = null;
+    }
+    const probeCanvas = document.createElement('canvas');
+    probeCanvas.width = 200;
+    probeCanvas.height = 150;
+    const probeCtx = probeCanvas.getContext('2d', { willReadFrequently: true });
+
+    this.focusMonitorTimer = setInterval(() => {
+      if (!this.stream || !video || video.videoWidth === 0 || !probeCtx) return;
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const sw = Math.max(16, Math.round(vw / Math.max(1, this.softwareZoomScale)));
+      const sh = Math.max(16, Math.round(vh / Math.max(1, this.softwareZoomScale)));
+      const sx = Math.max(0, Math.floor((vw - sw) / 2));
+      const sy = Math.max(0, Math.floor((vh - sh) / 2));
+
+      probeCtx.drawImage(
+        video,
+        sx + Math.floor(sw * 0.2),
+        sy + Math.floor(sh * 0.25),
+        Math.floor(sw * 0.6),
+        Math.floor(sh * 0.5),
+        0,
+        0,
+        200,
+        150
+      );
+      const data = probeCtx.getImageData(0, 0, 200, 150).data;
+      let sum = 0;
+      let sumSq = 0;
+      let count = 0;
+      for (let y = 10; y < 140; y += 2) {
+        for (let x = 10; x < 190; x += 2) {
+          const i = (y * 200 + x) * 4;
+          const c = data[i + 1];
+          const up = data[((y - 1) * 200 + x) * 4 + 1];
+          const dn = data[((y + 1) * 200 + x) * 4 + 1];
+          const lf = data[(y * 200 + (x - 1)) * 4 + 1];
+          const rt = data[(y * 200 + (x + 1)) * 4 + 1];
+          const lap = up + dn + lf + rt - 4 * c;
+          sum += lap;
+          sumSq += lap * lap;
+          count++;
+        }
+      }
+      const mean = count ? sum / count : 0;
+      const variance = count ? Math.max(0, sumSq / count - mean * mean) : 0;
+      const isSharp = variance >= 35;
+
+      if (afStatusEl) {
+        afStatusEl.innerText = isSharp
+          ? `AF: Continuous · Lock (${Math.min(99, Math.round(variance))}%)`
+          : 'AF: Adjusting focus...';
+      }
+
+      if (!isSharp && Date.now() - this.lastFocusTime > 2600) {
+        this.refocusTrack(0.5, 0.5);
+      }
+    }, 1100);
+  },
+
   stopCamera() {
+    if (this.focusMonitorTimer) {
+      clearInterval(this.focusMonitorTimer);
+      this.focusMonitorTimer = null;
+    }
     if (this.stream) {
-      this.stream.getTracks().forEach(t => t.stop());
+      this.stream.getTracks().forEach(t => {
+        try { t.stop(); } catch (_) {}
+      });
       this.stream = null;
       this.track = null;
       this.flashOn = false;
+    }
+    const video = document.getElementById('webcam');
+    if (video) {
+      try {
+        video.srcObject = null;
+      } catch (_) {}
     }
   },
 
@@ -9988,59 +10744,100 @@ const Ocr = {
     }
   },
 
+  /**
+   * Capture current frame from live video stream onto HTML5 canvas (applying digital zoom crop),
+   * convert to PNG data URL (image/png), and immediately stop active camera media tracks to release hardware.
+   */
   async captureFrame() {
     const video = document.getElementById('webcam');
-    if (!this.stream || video.videoWidth === 0) {
-      this.triggerFileUpload();
+    const snapshotImg = document.getElementById('capturedSnapshotPreview');
+
+    if (!this.stream || !video || video.videoWidth === 0 || video.videoHeight === 0) {
+      showToast("Camera stream not active — restarting live viewfinder...", "info");
+      await this.startCamera();
       return;
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    await this.processImage(canvas);
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const zoomScale = Math.max(1.0, this.softwareZoomScale || 1.0);
+    const cropW = Math.max(1, Math.round(vw / zoomScale));
+    const cropH = Math.max(1, Math.round(vh / zoomScale));
+    const cropX = Math.max(0, Math.floor((vw - cropW) / 2));
+    const cropY = Math.max(0, Math.floor((vh - cropH) / 2));
+
+    const captureCanvas = document.createElement('canvas');
+    captureCanvas.width = cropW;
+    captureCanvas.height = cropH;
+    const ctx = captureCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+    // Convert snapshot to PNG data URL (image/png)
+    const pngDataUrl = captureCanvas.toDataURL('image/png');
+
+    // Immediately stop active camera media tracks to release hardware
+    this.stopCamera();
+
+    if (video) video.classList.add('hidden');
+    if (snapshotImg) {
+      snapshotImg.src = pngDataUrl;
+      snapshotImg.classList.remove('hidden');
+    }
+
+    // Pass captured image/png data URL directly into local client-side preprocessing & OCR pipeline
+    await this.processCapturedDataUrl(pngDataUrl);
   },
 
-  triggerFileUpload() {
-    document.getElementById('ocrFileInput').click();
-  },
-
-  async handleFileSelected(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    const img = new Image();
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        await this.processImage(canvas);
+  dataUrlToCanvas(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || img.width;
+        c.height = img.naturalHeight || img.height;
+        const cCtx = c.getContext('2d');
+        cCtx.drawImage(img, 0, 0);
+        resolve(c);
       };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+      img.onerror = () => reject(new Error('Failed to decode captured PNG image'));
+      img.src = dataUrl;
+    });
   },
 
+  async processCapturedDataUrl(pngDataUrl) {
+    if (!pngDataUrl) return;
+    await this.processImage(pngDataUrl);
+  },
+
+  /**
+   * Client-Side Image Preprocessing (Canvas API) for Handwritten & Printed Math
+   * Uses modular TypeScript preprocessor if mounted, with complete inline Sauvola adaptive thresholding fallback.
+   */
   preprocessCanvas(srcCanvas) {
+    if (window.MathScannerEngine && window.MathScannerEngine.preprocessMathCanvas) {
+      return window.MathScannerEngine.preprocessMathCanvas(srcCanvas, {
+        handwritingMode: this.handwritingMode
+      }).canvas;
+    }
+
     const out = document.createElement('canvas');
     const maxDim = Math.max(srcCanvas.width, srcCanvas.height);
-    const scale = maxDim < 1000 ? Math.min(2.5, 1200 / maxDim) : 1;
-    out.width = Math.round(srcCanvas.width * scale);
-    out.height = Math.round(srcCanvas.height * scale);
+    const scale = maxDim < 1400 ? Math.min(2.5, 1400 / maxDim) : maxDim > 2200 ? 2200 / maxDim : 1;
+    const w = Math.max(1, Math.round(srcCanvas.width * scale));
+    const h = Math.max(1, Math.round(srcCanvas.height * scale));
+    out.width = w;
+    out.height = h;
 
-    const ctx = out.getContext('2d');
+    const ctx = out.getContext('2d', { willReadFrequently: true });
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(srcCanvas, 0, 0, out.width, out.height);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(srcCanvas, 0, 0, w, h);
 
     try {
-      const imgData = ctx.getImageData(0, 0, out.width, out.height);
+      const imgData = ctx.getImageData(0, 0, w, h);
       const d = imgData.data;
-      const w = out.width, h = out.height;
-
       const gray = new Uint8Array(w * h);
       for (let i = 0, j = 0; i < d.length; i += 4, j++) {
         gray[j] = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0;
@@ -10048,69 +10845,188 @@ const Ocr = {
 
       const intW = w + 1;
       const integral = new Float64Array((w + 1) * (h + 1));
+      const integralSq = new Float64Array((w + 1) * (h + 1));
       for (let y = 0; y < h; y++) {
         let rowSum = 0;
-        const yOffset = (y + 1) * intW;
-        const prevYOffset = y * intW;
-        const grayYOffset = y * w;
+        let rowSq = 0;
+        const yOff = (y + 1) * intW;
+        const prevOff = y * intW;
+        const gOff = y * w;
         for (let x = 0; x < w; x++) {
-          rowSum += gray[grayYOffset + x];
-          integral[yOffset + x + 1] = integral[prevYOffset + x + 1] + rowSum;
+          const v = gray[gOff + x];
+          rowSum += v;
+          rowSq += v * v;
+          integral[yOff + x + 1] = integral[prevOff + x + 1] + rowSum;
+          integralSq[yOff + x + 1] = integralSq[prevOff + x + 1] + rowSq;
         }
       }
 
-      const S = Math.max(12, Math.round(w / 16));
-      const s2 = Math.round(S / 2);
-      const T = 0.15;
+      const winR = Math.max(10, Math.round(Math.min(w, h) / 24));
+      const k = this.handwritingMode ? 0.22 : 0.16;
 
       for (let y = 0; y < h; y++) {
-        const y1 = Math.max(0, y - s2);
-        const y2 = Math.min(h - 1, y + s2);
-        const y1Offset = y1 * intW;
-        const y2Offset = (y2 + 1) * intW;
-        const grayYOffset = y * w;
+        const y1 = Math.max(0, y - winR);
+        const y2 = Math.min(h - 1, y + winR);
+        const y1Off = y1 * intW;
+        const y2Off = (y2 + 1) * intW;
+        const gOff = y * w;
 
         for (let x = 0; x < w; x++) {
-          const x1 = Math.max(0, x - s2);
-          const x2 = Math.min(w - 1, x + s2);
+          const x1 = Math.max(0, x - winR);
+          const x2 = Math.min(w - 1, x + winR);
           const count = (x2 - x1 + 1) * (y2 - y1 + 1);
-          const sum = integral[y2Offset + x2 + 1] - integral[y1Offset + x2 + 1] - integral[y2Offset + x1] + integral[y1Offset + x1];
-          const idx = (grayYOffset + x) * 4;
-          const isInk = gray[grayYOffset + x] * count <= sum * (1 - T);
+          const sum = integral[y2Off + x2 + 1] - integral[y1Off + x2 + 1] - integral[y2Off + x1] + integral[y1Off + x1];
+          const sumSq = integralSq[y2Off + x2 + 1] - integralSq[y1Off + x2 + 1] - integralSq[y2Off + x1] + integralSq[y1Off + x1];
+          const mean = sum / count;
+          const stdDev = Math.sqrt(Math.max(0, sumSq / count - mean * mean));
+          const thresh = mean * (1 + k * (stdDev / 128 - 1));
+          const pix = gray[gOff + x];
+          const isInk = pix <= thresh && !(this.handwritingMode && stdDev < 12 && pix > mean * 0.72);
           const val = isInk ? 0 : 255;
-          d[idx] = val; d[idx + 1] = val; d[idx + 2] = val;
+          const idx = (gOff + x) * 4;
+          d[idx] = val; d[idx + 1] = val; d[idx + 2] = val; d[idx + 3] = 255;
         }
       }
       ctx.putImageData(imgData, 0, 0);
-      return out;
+
+      const padded = document.createElement('canvas');
+      padded.width = w + 48;
+      padded.height = h + 48;
+      const pCtx = padded.getContext('2d');
+      pCtx.fillStyle = '#ffffff';
+      pCtx.fillRect(0, 0, padded.width, padded.height);
+      pCtx.drawImage(out, 24, 24);
+      return padded;
     } catch {
       return srcCanvas;
     }
   },
 
+  async getOfflineWorker() {
+    if (this.localWorker) return this.localWorker;
+    if (this.localWorkerPromise) return this.localWorkerPromise;
+
+    this.localWorkerPromise = (async () => {
+      const origin =
+        window.location && window.location.origin && window.location.origin !== 'null'
+          ? window.location.origin
+          : '';
+      const prefix = origin ? `${origin}/vendor/tesseract` : './vendor/tesseract';
+      const worker = await Tesseract.createWorker('eng', 1, {
+        workerPath: `${prefix}/worker.min.js`,
+        corePath: prefix,
+        langPath: `${prefix}/lang`,
+        workerBlobURL: false,
+        gzip: true,
+        logger: m => {
+          if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+            const pct = Math.round(m.progress * 100);
+            this.updateStageProgress(
+              `Running Offline OCR (${pct}%)...`,
+              40 + Math.round(m.progress * 40),
+              'Processing local Tesseract LSTM character models'
+            );
+          }
+        }
+      });
+      await worker.setParameters({
+        tessedit_char_whitelist:
+          '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/=^()[]{}.,:;√∫πθΔ°%<>≤≥±×÷| ',
+        tessedit_pageseg_mode: '6',
+        preserve_interword_spaces: '1'
+      });
+      this.localWorker = worker;
+      return worker;
+    })();
+
+    try {
+      return await this.localWorkerPromise;
+    } catch (err) {
+      this.localWorkerPromise = null;
+      throw err;
+    }
+  },
+
   cleanMathText(raw) {
-    if (!raw) return "";
-    let s = raw;
+    let s = raw || '';
+    if (window.MathScannerEngine && window.MathScannerEngine.sanitizeOcrMath) {
+      s = window.MathScannerEngine.sanitizeOcrMath(s);
+    }
+    if (window.MathScannerEngine && window.MathScannerEngine.extractMathStatementFromText) {
+      const extracted = window.MathScannerEngine.extractMathStatementFromText(s);
+      if (extracted) s = extracted;
+    }
+    if (!s) return "";
     const superscripts = {
       '⁰': '^0', '¹': '^1', '²': '^2', '³': '^3', '⁴': '^4',
       '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9',
-      '⁺': '^+', '⁻': '^-'
+      '⁺': '^+', '⁻': '^-', 'ⁿ': '^n'
     };
     for (const [sup, rep] of Object.entries(superscripts)) {
       s = s.split(sup).join(rep);
     }
+    s = s
+      .replace(/^(?:find\s+(?:the\s+)?derivative\s+(?:of|for)|differentiate)\b[:\s]*(.+)$/i, 'd/dx($1)')
+      .replace(/^(?:evaluate\s+(?:the\s+)?integral(?:\s+of)?|find\s+(?:the\s+)?(?:indefinite\s+)?integral(?:\s+of)?|integrate)\b[:\s]*(.+)$/i, 'integral($1)dx')
+      .replace(/^(?:solve(?:\s+the)?(?:\s+quadratic|\s+linear|\s+simultaneous|\s+system\s+of)?(?:\s+equation[s]?|\s+system)?(?:\s+for\s+[a-zA-Z])?|find(?:\s+the\s+value\s+of|\s+roots\s+of)?|evaluate|simplify|calculate|compute|factor(?:ize)?)\b[:\s\-]*/i, '')
+      .replace(/\b[s5][i1l]n\b/gi, 'sin')
+      .replace(/\bc[o0]s\b/gi, 'cos')
+      .replace(/\bt[a4]n\b/gi, 'tan')
+      .replace(/\b[s5]qrt\b/gi, 'sqrt')
+      .replace(/\b[1l]og\b/gi, 'log')
+      .replace(/\b[1l]n\b/gi, 'ln');
     s = s.replace(/([a-zA-Z\)])\s*([2-9])(?=\s*[\+\-\*\/\=\)]|\s+[a-zA-Z0-9]|\s*$)/g, '$1^$2');
     s = s.replace(/([a-zA-Z0-9\)])\s*\^\s*([0-9a-zA-Z]+)/g, '$1^$2');
     s = s.replace(/[\u2012\u2013\u2014\u2212_~]/g, '-');
-    s = s.replace(/[\u00D7\u22C5]/g, '*');
+    s = s.replace(/[\u00D7\u22C5•]/g, '*');
+    s = s.replace(/(\d)\s*[xX×]\s*(\d)/g, '$1 * $2');
     s = s.replace(/[\u00F7]/g, '/');
+    s = s.replace(/\[/g, '(').replace(/\]/g, ')');
+    s = s.replace(/\{/g, '(').replace(/\}/g, ')');
     s = s.replace(/==+/g, '=');
     s = s.replace(/\b([a-zA-Z0-9])\s+[tT]\s+([0-9a-zA-Z])/g, '$1 + $2');
     s = s.replace(/=\s*[oO]\b/g, '= 0');
     s = s.replace(/\b[oO]\s*=/g, '0 =');
+    s = s.replace(/[`~#$@&_|\\!?:;'"]/g, ' ');
     s = s.replace(/\r?\n+/g, ' ').replace(/\s+/g, ' ').trim();
-    s = s.replace(/[\.;,]$/, '');
+    s = s.replace(/[\.;,:'"`]+$/, '');
+
+    // Format cleanly with spaces around operators
+    s = s
+      .replace(/\s*([=])\s*/g, ' = ')
+      .replace(/\s*([+])\s*/g, ' + ')
+      .replace(/\s*([*×•])\s*/g, ' * ')
+      .replace(/\s*([/÷])\s*/g, ' / ')
+      .replace(/([0-9a-zA-Z\)])\s*-\s*([0-9a-zA-Z\(])/g, '$1 - $2')
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')')
+      .replace(/\s*\^\s*/g, '^')
+      .replace(/\s+/g, ' ')
+      .trim();
+
     return s;
+  },
+
+  isReasonableEquation(expr) {
+    if (!expr || !expr.trim()) return false;
+    if (window.MathScannerEngine && window.MathScannerEngine.isReasonableMath) {
+      return window.MathScannerEngine.isReasonableMath(expr);
+    }
+    const trimmed = expr.trim();
+    const digits = (trimmed.match(/\d/g) || []).length;
+    const variables = (trimmed.match(/[a-zA-Z]/g) || []).length;
+    const operators = (trimmed.match(/[+\-*/=^√∫]/g) || []).length;
+    if (digits + variables === 0) return false;
+
+    // Check balanced parens
+    let bal = 0;
+    for (const c of trimmed) {
+      if (c === '(') bal++;
+      else if (c === ')') { bal--; if (bal < 0) return false; }
+    }
+    if (bal !== 0) return false;
+
+    return operators > 0 || trimmed.includes('=') || /^\s*-?\s*\d*\.?\d+\s*[a-zA-Z]?\s*$/.test(trimmed);
   },
 
   autoFixInputPowers() {
@@ -10126,58 +11042,138 @@ const Ocr = {
   autoCleanText() {
     const input = document.getElementById('mathInput');
     if (!input || !input.value.trim()) { showToast("Type or scan an equation first", "info"); return; }
-    let fixed = this.cleanMathText(input.value)
-      .replace(/\s*([+\-*/=])\s*/g, ' $1 ')
-      .replace(/\s+/g, ' ')
-      .replace(/\(\s+/g, '(')
-      .replace(/\s+\)/g, ')')
-      .trim();
+    let fixed = this.cleanMathText(input.value);
     input.value = fixed;
     UI.updateLivePreview();
     showToast("Cleaned & formatted math offline!", "success");
   },
 
-  async processImage(canvas) {
+  async processImage(sourceInput) {
     const overlay = document.getElementById('cameraLoadingOverlay');
-    const overlayText = document.getElementById('cameraLoadingText');
-    overlay.classList.remove('hidden');
+    if (overlay) overlay.classList.remove('hidden');
 
     try {
-      let detectedText = "";
-      if (CONFIG.MATHPIX_APP_ID && CONFIG.MATHPIX_APP_KEY) {
-        overlayText.innerText = "Analyzing with Mathpix API...";
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        const response = await fetch("https://api.mathpix.com/v3/text", {
-          method: "POST",
-          headers: { "content-type": "application/json", "app_id": CONFIG.MATHPIX_APP_ID, "app_key": CONFIG.MATHPIX_APP_KEY },
-          body: JSON.stringify({ src: dataUrl, formats: ["text", "latex_styled"] })
-        });
-        const data = await response.json();
-        detectedText = (data.latex_styled || data.text || "").replace(/\\/g, '');
-      } else {
-        overlayText.innerText = "Enhancing contrast & OCR...";
-        const processed = this.preprocessCanvas(canvas);
-        const res = await Tesseract.recognize(processed, 'eng', {
-          logger: m => {
-            if (m.status === 'recognizing text' && m.progress) {
-              overlayText.innerText = `Recognizing math (${Math.round(m.progress * 100)}%)...`;
-            }
+      // Stage 1: Client-Side Canvas Preprocessing
+      this.updateStageProgress(
+        'Preprocessing Image...',
+        18,
+        'Normalizing illumination & sharpening handwritten strokes'
+      );
+
+      let cleaned = '';
+      let rawText = '';
+      let confidence = 0;
+
+      if (window.MathScannerEngine && window.MathScannerEngine.runPipeline) {
+        const pipeRes = await window.MathScannerEngine.runPipeline(sourceInput, {
+          handwritingMode: this.handwritingMode,
+          onStageChange: evt => {
+            this.updateStageProgress(
+              evt.statusText,
+              evt.progress,
+              evt.stage === 'preprocessing'
+                ? 'Grayscale, contrast stretch & adaptive binarization'
+                : evt.stage === 'ocr'
+                  ? '100% offline Tesseract v5 WASM recognition'
+                  : 'Matching formula category & computing steps'
+            );
           }
         });
-        detectedText = res.data.text || "";
+        rawText = pipeRes.ocr.rawText;
+        cleaned = pipeRes.ocr.cleanedMath;
+        confidence = Math.round(pipeRes.ocr.confidence || 0);
+      } else {
+        const canvas =
+          typeof sourceInput === 'string'
+            ? await this.dataUrlToCanvas(sourceInput)
+            : sourceInput;
+        const processed = this.preprocessCanvas(canvas);
+        this.updateStageProgress(
+          'Running Offline OCR...',
+          45,
+          'Initializing local Tesseract v5 worker'
+        );
+        const worker = await this.getOfflineWorker();
+        const res = await worker.recognize(processed);
+        rawText = (res && res.data && res.data.text) || '';
+        confidence = Math.round((res && res.data && res.data.confidence) || 0);
+        cleaned = this.cleanMathText(rawText);
       }
 
-      const cleaned = this.cleanMathText(detectedText);
-      closeModal('cameraModal');
-      document.getElementById('mathInput').value = cleaned || "2x + 5 = 15";
-      openModal('writeModal');
-      UI.updateLivePreview();
-      showToast("Scanned math loaded! Review before solving.", "success");
+      // Format for Mathpad properly
+      cleaned = this.cleanMathText(cleaned);
+
+      // Validate that OCR result is coherent mathematical syntax and not noisy garbage
+      const isValid = this.isReasonableEquation(cleaned);
+
+      if (!cleaned || !cleaned.trim() || !isValid) {
+        throw new Error(
+          'Could not clearly read equation. Please try re-scanning or typing manually.'
+        );
+      }
+
+      // Stage 3: Pattern Matching & Dedicated Formula Solver Execution
+      this.updateStageProgress(
+        'Matching Formula & Solving...',
+        90,
+        `Detected: ${cleaned}`
+      );
+
+      const result = await Solver.solve(cleaned);
+      if (result && !result.error) {
+        // Successful solve: populate typebar with clean formatted math
+        const mathInputEl = document.getElementById('mathInput');
+        if (mathInputEl) mathInputEl.value = cleaned;
+
+        result.ocrMeta = {
+          rawText: rawText.trim(),
+          cleanedMath: cleaned,
+          confidence
+        };
+        closeModal('cameraModal');
+        Store.saveItem(result);
+        window._openedFromWriteModal = false;
+        UI.displaySolution(result);
+        showToast(
+          result.categoryLabel
+            ? `Solved (${result.categoryLabel})`
+            : 'Formula matched & solved!',
+          'success'
+        );
+      } else {
+        // If solver returns an error on parsed string, check if it's partially salvageable
+        // If it's too noisy, do NOT dump garbage characters into typebar
+        if (!isValid) {
+          throw new Error(
+            'Could not clearly read equation. Please try re-scanning or typing manually.'
+          );
+        }
+
+        // Only populate if it looks like a clean, valid expression
+        const mathInputEl = document.getElementById('mathInput');
+        if (mathInputEl) mathInputEl.value = cleaned;
+
+        closeModal('cameraModal');
+        openModal('writeModal');
+        UI.updateLivePreview();
+        showToast(
+          'Equation loaded into Mathpad — review or adjust symbols to solve.',
+          'info'
+        );
+      }
     } catch (err) {
-      console.error("OCR Error:", err);
-      showToast("OCR Error: " + err.message, "error");
+      console.error('Offline OCR Error:', err);
+      const errMsg = err && err.message
+        ? err.message
+        : 'Could not clearly read equation. Please try re-scanning or typing manually.';
+      this.setPermissionBanner(
+        true,
+        `${errMsg} Tap Retry Camera below to capture a new snapshot.`,
+        'Scan Needs Retry'
+      );
+      showToast(errMsg, 'error');
     } finally {
-      overlay.classList.add('hidden');
+      if (overlay) overlay.classList.add('hidden');
     }
   }
 };
@@ -11161,6 +12157,32 @@ const UI = {
   // UNIVERSAL 5-SECTION STEP-BY-STEP BREAKDOWN RENDERER
   displaySolution(item) {
     this.currentSolvedResult = item;
+
+    // Detected Category & Extracted Parameters Banner
+    const classBanner = document.getElementById('solutionClassificationBanner');
+    const catEl = document.getElementById('solutionDetectedCategory');
+    const extEl = document.getElementById('solutionExtractedParams');
+    if (classBanner && catEl && extEl) {
+      let categoryText = item.categoryLabel || (item.formulaStatement && item.formulaStatement.title) || '';
+      let extractedText = item.extractedValues || '';
+
+      if ((!categoryText || !extractedText) && window.MathScannerEngine && window.MathScannerEngine.classifyMathProblem && item.query) {
+        const cls = window.MathScannerEngine.classifyMathProblem(item.query);
+        categoryText = categoryText || cls.categoryLabel;
+        extractedText = extractedText || cls.extractedSummary;
+      }
+
+      if (categoryText || extractedText) {
+        classBanner.classList.remove('hidden');
+        const ocrTag = item.ocrMeta && item.ocrMeta.confidence
+          ? ` · Scanned (${item.ocrMeta.confidence}% OCR)`
+          : '';
+        catEl.innerText = `${categoryText || 'Mathematical Solution'}${ocrTag}`;
+        extEl.innerText = extractedText || '';
+      } else {
+        classBanner.classList.add('hidden');
+      }
+    }
 
     // Header problem query with explicit Q: label
     const q = document.getElementById('solutionQuery');
@@ -12333,6 +13355,9 @@ function closeModal(id) {
   if (el) el.classList.add('hidden');
   if (id === 'cameraModal') {
     Ocr.stopCamera();
+  } else if (id === 'recentsListModal') {
+    Store.batchMode = false;
+    if (Store.selectedBatchIds) Store.selectedBatchIds.clear();
   } else if (id === 'formulasModal') {
     FormulaEngine.silentResetNavigation();
   } else if (id === 'solutionModal') {
@@ -12370,19 +13395,32 @@ function appendMath(str) {
   const end = input.selectionEnd != null ? input.selectionEnd : input.value.length;
   const val = input.value;
 
+  let mapped = str;
   if (str === 'fraction') {
     const fracText = "(( )/( ))";
     input.value = val.substring(0, start) + fracText + val.substring(end);
     const targetPos = start + 2; // Position cursor inside numerator parentheses
     input.focus();
     input.setSelectionRange(targetPos, targetPos);
+    UI.updateLivePreview();
+    FormulaSuggestions.onInputChange(input.value);
+    return;
+  } else if (str === 'x²' || str === '²') {
+    mapped = "^2";
+  } else if (str === 'x³' || str === '³') {
+    mapped = "^3";
+  } else if (str === 'x⁴' || str === '⁴') {
+    mapped = "^4";
+  } else if (str === 'xⁿ' || str === 'ⁿ' || str === 'x^' || str === '^') {
+    mapped = "^";
   } else {
-    const mapped = autoConvertMathSymbols(str);
-    input.value = val.substring(0, start) + mapped + val.substring(end);
-    const newPos = start + mapped.length;
-    input.focus();
-    input.setSelectionRange(newPos, newPos);
+    mapped = autoConvertMathSymbols(str);
   }
+
+  input.value = val.substring(0, start) + mapped + val.substring(end);
+  const newPos = start + mapped.length;
+  input.focus();
+  input.setSelectionRange(newPos, newPos);
 
   UI.updateLivePreview();
   FormulaSuggestions.onInputChange(input.value);
@@ -12633,7 +13671,6 @@ async function handleWriteSubmit(e) {
 
 function toggleFlash() { Ocr.toggleFlash(); }
 function capturePhoto() { Ocr.captureFrame(); }
-function triggerUpload() { Ocr.triggerFileUpload(); }
 
 /**
  * PART 2: Touch-Swipe & Mouse Wheel Support for Horizontal Scrollbars
@@ -12712,5 +13749,7 @@ openModal = function(id) {
   }
 };
 </script>
+<div id="root" class="hidden" aria-hidden="true"></div>
+<script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

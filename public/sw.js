@@ -1,5 +1,5 @@
 // MathSolver Offline Service Worker - 100% Airplane Mode Compliant
-const CACHE_NAME = 'mathsolver-offline-v3';
+const CACHE_NAME = 'mathsolver-offline-v4';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -12,6 +12,12 @@ const PRECACHE_URLS = [
   '/vendor/css/all.min.css',
   '/vendor/math.js',
   '/vendor/tesseract.min.js',
+  '/vendor/tesseract/worker.min.js',
+  '/vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
+  '/vendor/tesseract/tesseract-core-lstm.wasm.js',
+  '/vendor/tesseract/tesseract-core-simd.wasm.js',
+  '/vendor/tesseract/tesseract-core.wasm.js',
+  '/vendor/tesseract/lang/eng.traineddata.gz',
   '/vendor/jspdf.umd.min.js',
   '/vendor/html2pdf.bundle.min.js',
   '/vendor/tex-svg.js'

@@ -1,4 +1,10 @@
 import * as math from 'mathjs';
+import {
+  classifyMathProblem,
+  extractAlgebraVariables,
+  normalizeMathSyntax,
+  QuestionCategoryCode
+} from './scanner/formulaClassifier';
 
 export interface StepItem {
   title: string;
@@ -9,6 +15,9 @@ export interface StepItem {
 export interface SolveResult {
   query: string;
   answer: string;
+  questionType?: QuestionCategoryCode;
+  categoryLabel?: string;
+  extractedValues?: string;
   formulaStatement?: {
     title: string;
     latex: string;
@@ -29,23 +38,7 @@ export interface SolveResult {
 
 export const Solver = {
   extractVariables(exprStr: string): string[] {
-    if (!exprStr) return [];
-    const known = new Set([
-      'sqrt', 'cbrt', 'log', 'ln', 'log10', 'log2', 'abs', 'exp', 'deg', 'rad',
-      'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
-      'arcsin', 'arccos', 'arctan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
-      'pi', 'e', 'integral', 'integrate', 'diff', 'derivative', 'lim', 'sum', 'infinity',
-      'delta', 'dx', 'dy', 'dz', 'dt', 'da', 'db'
-    ]);
-    const tokens = exprStr.match(/[a-zA-Z\u0370-\u03FF]+/g) || [];
-    const vars: string[] = [];
-    for (const token of tokens) {
-      const lower = token.toLowerCase();
-      if (!known.has(lower) && !vars.includes(token)) {
-        vars.push(token);
-      }
-    }
-    return vars;
+    return extractAlgebraVariables(exprStr);
   },
 
   _solveCache: new Map<string, SolveResult>(),
@@ -78,64 +71,71 @@ export const Solver = {
   },
 
   async _solveInternal(rawInput: string): Promise<SolveResult> {
+    const classified = classifyMathProblem(rawInput);
+    const clean = classified.normalizedExpr || normalizeMathSyntax(rawInput);
 
-    let clean = rawInput.trim();
+    let result: SolveResult;
 
-    // Normalize unicode superscripts to carets
-    const superscripts: Record<string, string> = {
-      '⁰': '^0', '¹': '^1', '²': '^2', '³': '^3', '⁴': '^4',
-      '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9',
-      '⁺': '^+', '⁻': '^-'
-    };
-    for (const [sup, rep] of Object.entries(superscripts)) {
-      clean = clean.split(sup).join(rep);
+    switch (classified.code) {
+      case 'LINEAR_SYSTEM':
+        result = this.solveSystemOfLinearEquations(rawInput, clean);
+        break;
+      case 'CALCULUS_DERIVATIVE':
+        result = this.solveDerivative(
+          rawInput,
+          classified.params.targetExpr || clean,
+          classified.params.respectTo || 'x'
+        );
+        break;
+      case 'CALCULUS_INTEGRAL':
+        result = this.solveIntegral(
+          rawInput,
+          classified.params.integrand || clean,
+          classified.params.respectTo || 'x'
+        );
+        break;
+      case 'QUADRATIC_EQUATION':
+      case 'LINEAR_EQUATION':
+        result = this.solveEquation(rawInput, clean);
+        break;
+      case 'TRIGONOMETRY': {
+        if (classified.params.isExactSingleCall) {
+          result = this.solveTrig(rawInput, classified.params.func, classified.params.arg);
+        } else {
+          result = this.solveArithmetic(rawInput, clean);
+        }
+        break;
+      }
+      case 'ALGEBRAIC_EXPRESSION':
+        result = this.solveAlgebraic(rawInput, clean);
+        break;
+      case 'ARITHMETIC':
+      default:
+        if (clean.includes('=')) {
+          result = this.solveEquation(rawInput, clean);
+        } else {
+          result = this.solveArithmetic(rawInput, clean);
+        }
+        break;
     }
 
-    clean = clean
-      .replace(/[\u2012\u2013\u2014\u2212_]/g, '-')
-      .replace(/[\u00D7\u22C5]/g, '*')
-      .replace(/[\u00F7]/g, '/')
-      .replace(/π/g, 'pi')
-      .replace(/\bPi\b/g, 'pi')
-      .replace(/θ/g, 'theta')
-      .replace(/Δ/g, 'Delta');
-
-    // 1. SIMULTANEOUS LINEAR EQUATIONS (Multiple equations separated by comma, semicolon, or "and")
-    if (this.isSimultaneousSystem(clean)) {
-      return this.solveSystemOfLinearEquations(rawInput, clean);
+    // Attach detected question classification & extracted values metadata
+    if (!result.error) {
+      result.questionType = result.questionType || classified.code;
+      result.categoryLabel = result.categoryLabel || classified.categoryLabel;
+      result.extractedValues = result.extractedValues || classified.extractedSummary;
+      if (!result.formulaStatement) {
+        result.formulaStatement = {
+          title: classified.formulaTitle,
+          latex: classified.formulaLatex
+        };
+      }
+      if (!result.givenValues) {
+        result.givenValues = classified.extractedLatex;
+      }
     }
 
-    // 2. DERIVATIVE DETECTION: d/dx(...) or diff(...) or derivative(...)
-    const derivMatch = clean.match(/^(?:d\/d([a-zA-Z])|diff|derivative)\s*\(?([^)]+?)\)?$/i);
-    if (derivMatch) {
-      return this.solveDerivative(rawInput, derivMatch[2].trim(), derivMatch[1] || null);
-    }
-
-    // 3. INTEGRAL DETECTION: integral(...) or integrate(...) or ∫...
-    const intMatch = clean.match(/^(?:integral|integrate)\s*\(?([^)]+?)\)?(?:\s*d([a-zA-Z]))?$/i) || clean.match(/^(?:∫)\s*(.+?)(?:\s*d([a-zA-Z]))?$/i);
-    if (intMatch) {
-      return this.solveIntegral(rawInput, intMatch[1].trim(), intMatch[2] || null);
-    }
-
-    // 4. EQUATIONS WITH EQUALS SIGN (Linear, Quadratic, Multi-Variable)
-    if (clean.includes('=')) {
-      return this.solveEquation(rawInput, clean);
-    }
-
-    // 5. TRIGONOMETRIC EXPRESSIONS: sin(30), cos(45), tan(60)...
-    const trigMatch = clean.match(/^(sin|cos|tan|cot|sec|csc)\s*\(\s*([^)]+)\s*\)$/i);
-    if (trigMatch) {
-      return this.solveTrig(rawInput, trigMatch[1].toLowerCase(), trigMatch[2].trim());
-    }
-
-    // 6. GENERAL POLYNOMIAL / ALGEBRAIC SIMPLIFICATION
-    const stripped = clean.replace(/[a-zA-Z]+/g, m => ['sqrt','log','ln','abs','exp','pi','e'].includes(m.toLowerCase()) ? '' : m);
-    if (/[a-zA-Z]/.test(stripped)) {
-      return this.solveAlgebraic(rawInput, clean);
-    }
-
-    // 7. ARITHMETIC EVALUATION
-    return this.solveArithmetic(rawInput, clean);
+    return result;
   },
 
   isSimultaneousSystem(clean: string): boolean {
@@ -353,8 +353,11 @@ export const Solver = {
           return {
             query: raw,
             answer: ans,
+            questionType: "LINEAR_EQUATION",
+            categoryLabel: "Algebra · Linear Equation",
+            extractedValues: `Variable ${v}: coefficient = ${b}, constant = ${c}`,
             formulaStatement: { title: "Linear Equation", latex: `${b}${v} + (${c}) = 0 \\implies ${v} = -\\frac{c}{b}` },
-            givenValues: `b = ${b}, \\quad c = ${c}`,
+            givenValues: `a = ${b}, \\quad c = ${c}`,
             substitution: `${v} = \\frac{${-c}}{${b}}`,
             intermediateSteps: intermediate,
             finalResult: ans,
@@ -402,6 +405,9 @@ export const Solver = {
         return {
           query: raw,
           answer: ans,
+          questionType: "QUADRATIC_EQUATION",
+          categoryLabel: "Algebra · Quadratic Equation",
+          extractedValues: `Variable ${v}: a = ${a}, b = ${b}, c = ${c} (Δ = ${cleanDisc})`,
           formulaStatement: { title: "Quadratic Formula", latex: `${v} = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}` },
           givenValues: `a = ${a}, \\; b = ${b}, \\; c = ${c}`,
           substitution: `${v} = \\frac{-(${b}) \\pm \\sqrt{(${b})^2 - 4(${a})(${c})}}{2(${a})}`,
@@ -533,18 +539,171 @@ export const Solver = {
 
   solveIntegral(raw: string, integrand: string, respectTo: string | null = 'x'): SolveResult {
     const v = respectTo || 'x';
-    const ans = `∫(${integrand})d${v} + C`;
+    const cleanBody = integrand.replace(/\s+/g, '');
+
+    // Split top-level additive terms (+ or - not inside parens or exponents)
+    const terms: string[] = [];
+    let current = '';
+    let depth = 0;
+    for (let i = 0; i < cleanBody.length; i++) {
+      const ch = cleanBody[i];
+      if (ch === '(') depth++;
+      else if (ch === ')') depth = Math.max(0, depth - 1);
+      if (
+        depth === 0 &&
+        i > 0 &&
+        (ch === '+' || ch === '-') &&
+        cleanBody[i - 1] !== '^' &&
+        cleanBody[i - 1] !== '*'
+      ) {
+        terms.push(current);
+        current = ch;
+      } else {
+        current += ch;
+      }
+    }
+    if (current) terms.push(current);
+
+    const integratedTerms: string[] = [];
+    const stepDetails: string[] = [];
+    let allResolved = terms.length > 0;
+
+    for (let t of terms) {
+      let sign = 1;
+      if (t.startsWith('+')) t = t.slice(1);
+      else if (t.startsWith('-')) {
+        sign = -1;
+        t = t.slice(1);
+      }
+
+      // Constant term
+      if (!t.includes(v) && /^[0-9.]+$/.test(t)) {
+        const cVal = sign * parseFloat(t);
+        const termStr = cVal === 1 ? v : cVal === -1 ? `-${v}` : `${cVal}${v}`;
+        integratedTerms.push(termStr);
+        stepDetails.push(`\\int (${sign * parseFloat(t)})\\,d${v} = ${termStr}`);
+        continue;
+      }
+
+      // Power rule term: [coeff *] v [^ exp]
+      const polyRegex = new RegExp(
+        `^(?:([0-9]*\\.?[0-9]+)\\*?)?${v}(?:\\^\\(?(-?[0-9]*\\.?[0-9]+)\\)?)?$`
+      );
+      const pm = t.match(polyRegex);
+      if (pm) {
+        const coeff = sign * (pm[1] ? parseFloat(pm[1]) : 1);
+        const exp = pm[2] !== undefined ? parseFloat(pm[2]) : 1;
+
+        if (exp === -1) {
+          const termStr = coeff === 1 ? `ln|${v}|` : coeff === -1 ? `-ln|${v}|` : `${coeff}*ln|${v}|`;
+          integratedTerms.push(termStr);
+          stepDetails.push(`\\int \\frac{${coeff}}{${v}}\\,d${v} = ${coeff}\\ln|${v}|`);
+        } else {
+          const newExp = exp + 1;
+          const newCoeff = coeff / newExp;
+          const cleanCoeff = Number.isInteger(newCoeff)
+            ? newCoeff
+            : parseFloat(newCoeff.toFixed(4));
+          const varPart = newExp === 1 ? v : `${v}^${newExp}`;
+          const termStr =
+            cleanCoeff === 1
+              ? varPart
+              : cleanCoeff === -1
+                ? `-${varPart}`
+                : `${cleanCoeff}${varPart}`;
+          integratedTerms.push(termStr);
+          stepDetails.push(
+            `\\int ${coeff === 1 ? '' : coeff}${v}^{${exp}}\\,d${v} = \\frac{${coeff}${v}^{${newExp}}}{${newExp}} = ${termStr}`
+          );
+        }
+        continue;
+      }
+
+      // Standard trig & exp single terms
+      if (t === `sin(${v})`) {
+        const termStr = sign === 1 ? `-cos(${v})` : `cos(${v})`;
+        integratedTerms.push(termStr);
+        stepDetails.push(`\\int ${sign === -1 ? '-' : ''}\\sin(${v})\\,d${v} = ${termStr}`);
+        continue;
+      }
+      if (t === `cos(${v})`) {
+        const termStr = sign === 1 ? `sin(${v})` : `-sin(${v})`;
+        integratedTerms.push(termStr);
+        stepDetails.push(`\\int ${sign === -1 ? '-' : ''}\\cos(${v})\\,d${v} = ${termStr}`);
+        continue;
+      }
+      if (t === `e^${v}` || t === `e^(${v})` || t === `exp(${v})`) {
+        const termStr = sign === 1 ? `e^${v}` : `-e^${v}`;
+        integratedTerms.push(termStr);
+        stepDetails.push(`\\int ${sign === -1 ? '-' : ''}e^{${v}}\\,d${v} = ${termStr}`);
+        continue;
+      }
+
+      allResolved = false;
+      break;
+    }
+
+    let ans: string;
     const steps: StepItem[] = [
-      { title: "Integrand Statement", expression: `f(${v}) = ${integrand}`, note: "Indefinite integration" },
-      { title: "Antiderivative", expression: ans, note: "Add constant of integration C" }
+      {
+        title: "Integrand Statement",
+        expression: `f(${v}) = ${integrand}`,
+        note: `Indefinite integration with respect to ${v}`
+      }
     ];
+
+    if (allResolved && integratedTerms.length > 0) {
+      const joined = integratedTerms
+        .map((term, idx) => {
+          if (idx === 0) return term;
+          return term.startsWith('-') ? ` - ${term.slice(1)}` : ` + ${term}`;
+        })
+        .join('');
+      ans = `${joined} + C`;
+      steps.push({
+        title: "Apply Power & Integration Rules",
+        expression: stepDetails.join(', \\quad '),
+        note: `Integrate each term using ∫${v}ⁿ d${v} = ${v}^(n+1)/(n+1)`
+      });
+      steps.push({
+        title: "Final Antiderivative",
+        expression: `F(${v}) = ${ans}`,
+        note: "Combine integrated terms and add constant of integration C"
+      });
+    } else {
+      ans = `∫(${integrand})d${v} + C`;
+      steps.push({
+        title: "Antiderivative",
+        expression: ans,
+        note: "Add constant of integration C"
+      });
+    }
+
     return {
       query: raw,
       answer: ans,
-      formulaStatement: { title: "Indefinite Integral", latex: `\\int f(${v}) \\, d${v}` },
+      formulaStatement: {
+        title: "Indefinite Integral (Power Rule)",
+        latex: `\\int ${v}^n \\, d${v} = \\frac{${v}^{n+1}}{n+1} + C`
+      },
+      givenValues: `f(${v}) = ${integrand}`,
+      substitution: `\\int (${integrand}) \\, d${v}`,
       intermediateSteps: steps,
       finalResult: ans,
       steps
     };
+  },
+
+  /**
+   * Solve an array of past or queued mathematical queries sequentially in a single batch.
+   */
+  async solveBatch(queries: string[]): Promise<SolveResult[]> {
+    const results: SolveResult[] = [];
+    for (const q of queries) {
+      if (q && q.trim()) {
+        results.push(await this.solve(q));
+      }
+    }
+    return results;
   }
 };
