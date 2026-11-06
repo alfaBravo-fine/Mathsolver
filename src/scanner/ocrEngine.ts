@@ -366,18 +366,35 @@ export class OfflineOcrEngine {
     let rawText = (res?.data?.text || '').trim();
     let confidence = typeof res?.data?.confidence === 'number' ? res.data.confidence : 0;
 
-    // Adaptive fallback to SINGLE_LINE mode if block recognition yields empty or low-confidence text
-    if (!rawText || confidence < 62) {
-      await worker.setParameters({
-        tessedit_pageseg_mode: PSM.SINGLE_LINE
-      });
-      const lineRes = await worker.recognize(canvas);
-      const lineText = (lineRes?.data?.text || '').trim();
-      const lineConf = typeof lineRes?.data?.confidence === 'number' ? lineRes.data.confidence : 0;
-      if (lineText && (!rawText || lineConf > confidence)) {
-        rawText = lineText;
-        confidence = lineConf;
-      }
+    // Adaptive fallback to SINGLE_LINE or RAW_LINE mode if block recognition yields empty or low-confidence text
+    if (!rawText || confidence < 65) {
+      try {
+        await worker.setParameters({
+          tessedit_pageseg_mode: PSM.SINGLE_LINE
+        });
+        const lineRes = await worker.recognize(canvas);
+        const lineText = (lineRes?.data?.text || '').trim();
+        const lineConf = typeof lineRes?.data?.confidence === 'number' ? lineRes.data.confidence : 0;
+        if (lineText && (!rawText || lineConf > confidence || lineText.length > rawText.length)) {
+          rawText = lineText;
+          confidence = lineConf;
+        }
+      } catch (_) {}
+    }
+
+    if (!rawText || confidence < 50) {
+      try {
+        await worker.setParameters({
+          tessedit_pageseg_mode: PSM.RAW_LINE
+        });
+        const rawLineRes = await worker.recognize(canvas);
+        const rawLineText = (rawLineRes?.data?.text || '').trim();
+        const rawLineConf = typeof rawLineRes?.data?.confidence === 'number' ? rawLineRes.data.confidence : 0;
+        if (rawLineText && (!rawText || rawLineConf > confidence)) {
+          rawText = rawLineText;
+          confidence = rawLineConf;
+        }
+      } catch (_) {}
     }
 
     const cleanedMath = sanitizeOcrMath(rawText);
