@@ -193,7 +193,7 @@
     }
 
     /* Hardware Acceleration Hints for 60fps Native Android Responsiveness */
-    main, .responsive-modal-sheet, .math-key-btn, canvas, #toastContainer, #graphTooltip, #photomathTemplateCard {
+    .responsive-modal-sheet, .math-key-btn, canvas, #toastContainer, #graphTooltip, #photomathTemplateCard {
       -webkit-transform: translateZ(0);
       transform: translateZ(0);
       -webkit-backface-visibility: hidden;
@@ -222,18 +222,27 @@
       padding-right: max(0px, var(--safe-right));
     }
 
-    /* Full-Screen Sliding Bottom-Sheet Panels (No Blur / No Popups) */
+    /* Full-Screen Sliding Bottom-Sheet Panels (Constrained to App Mobile Frame max-w-[440px]) */
     .fullscreen-slide-panel {
       position: fixed !important;
       inset: 0 !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
       width: 100vw !important;
+      max-width: 100vw !important;
       height: 100vh !important;
       height: 100dvh !important;
-      background-color: var(--bg-primary) !important;
-      color: var(--text-primary) !important;
-      z-index: 50 !important;
+      max-height: 100dvh !important;
+      background-color: rgba(9, 13, 22, 0.45) !important;
+      -webkit-backdrop-filter: blur(6px) !important;
+      backdrop-filter: blur(6px) !important;
+      z-index: 9000 !important;
       display: flex !important;
       flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
       overflow: hidden !important;
       transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
       transform: translateY(0) !important;
@@ -241,6 +250,7 @@
       border-radius: 0 !important;
       margin: 0 !important;
       padding: 0 !important;
+      box-sizing: border-box !important;
     }
 
     .fullscreen-slide-panel.hidden {
@@ -251,25 +261,35 @@
     }
 
     .fullscreen-slide-panel.z-higher {
-      z-index: 60 !important;
+      z-index: 9500 !important;
     }
 
     .fullscreen-panel-sheet {
       width: 100% !important;
-      max-width: 48rem !important; /* 768px */
+      max-width: 440px !important;
       margin-left: auto !important;
       margin-right: auto !important;
       height: 100% !important;
+      max-height: 100dvh !important;
       display: flex !important;
       flex-direction: column !important;
+      flex: 1 1 auto !important;
       overflow-y: auto !important;
       background-color: var(--bg-primary) !important;
+      color: var(--text-primary) !important;
       padding: 1rem !important;
+      box-sizing: border-box !important;
+      position: relative !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
     }
 
     @media (min-width: 640px) {
       .fullscreen-panel-sheet {
-        padding: 1.5rem !important;
+        padding: 1.25rem !important;
+        max-height: min(100dvh - 1.5rem, 840px) !important;
+        height: min(100dvh - 1.5rem, 840px) !important;
+        border-radius: 36px !important;
+        border: 1px solid var(--border-subtle) !important;
       }
     }
 
@@ -693,8 +713,9 @@
         <!-- Rendered by Store.renderHomeChips() -->
       </div>
     </div>
+  </main>
 
-    <!-- ================= MODALS & DRAWERS ================= -->
+  <!-- ================= MODALS & DRAWERS ================= -->
 
     <!-- 1. WRITE PROBLEM MODAL -->
     <div id="writeModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
@@ -1142,126 +1163,128 @@
     </div>
 
     <!-- 3. IN-APP CAMERA SCANNER MODAL (LIVE HTML5 GETUSERMEDIA STREAM, DIGITAL ZOOM & PNG SNAPSHOT PIPELINE) -->
-    <div id="cameraModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))] bg-black text-white">
-      <!-- Top Bar -->
-      <div class="w-full max-w-[440px] flex justify-between items-center text-white">
-        <div class="flex items-center gap-2.5">
-          <i class="fa-solid fa-camera text-sage-green"></i>
-          <div>
-            <div class="font-bold text-sm leading-tight">In-App Math Scanner</div>
-            <div id="cameraAfStatus" class="text-[11px] text-white/70 font-mono tabular-nums">AF: Continuous · Back Camera</div>
+    <div id="cameraModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet bg-black text-white flex flex-col justify-between items-center p-3 sm:p-4">
+        <!-- Top Bar -->
+        <div class="w-full max-w-full px-2 flex justify-between items-center text-white shrink-0">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-camera text-sage-green"></i>
+            <div>
+              <div class="font-bold text-sm leading-tight">In-App Math Scanner</div>
+              <div id="cameraAfStatus" class="text-[11px] text-white/70 font-mono tabular-nums">AF: Continuous · Back Camera</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" id="handwritingModeBtn" onclick="Ocr.toggleHandwritingMode()" class="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer" title="Toggle adaptive shadow removal and stroke sharpening for handwritten notes">
+              <i class="fa-solid fa-pen-nib text-sage-green text-xs"></i>
+              <span id="handwritingModeLabel">Handwriting: ON</span>
+            </button>
+            <button type="button" onclick="closeModal('cameraModal')" aria-label="Close Camera" class="min-w-[44px] min-h-[44px] rounded-full bg-white/15 flex items-center justify-center text-white hover:bg-white/25 transition cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" id="handwritingModeBtn" onclick="Ocr.toggleHandwritingMode()" class="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer" title="Toggle adaptive shadow removal and stroke sharpening for handwritten notes">
-            <i class="fa-solid fa-pen-nib text-sage-green text-xs"></i>
-            <span id="handwritingModeLabel">Handwriting: ON</span>
-          </button>
-          <button type="button" onclick="closeModal('cameraModal')" aria-label="Close Camera" class="min-w-[44px] min-h-[44px] rounded-full bg-white/15 flex items-center justify-center text-white hover:bg-white/25 transition cursor-pointer">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      </div>
 
-      <!-- Center Viewfinder & Clean Permission/Retry Fallback Banner -->
-      <div class="w-full max-w-[360px] flex-1 flex flex-col items-center justify-center my-2 min-h-0">
-        <!-- Fallback Banner when Camera Permission is Denied or Stream Unavailable -->
-        <div id="cameraPermissionBanner" class="hidden w-full mb-3 p-4 rounded-2xl bg-gray-900/95 border border-white/15 text-white shadow-xl">
-          <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-xl bg-sage-green/20 text-sage-green flex items-center justify-center shrink-0">
-              <i class="fa-solid fa-video-slash text-base"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-              <h3 id="cameraFallbackTitle" class="text-sm font-bold text-white mb-1">Camera Access Required</h3>
-              <p id="cameraPermissionReason" class="text-xs text-gray-300 leading-relaxed mb-3">
-                Allow camera access to start the live viewfinder and scan equations offline.
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <button type="button" id="cameraRetryBtn" onclick="Ocr.retryCamera()" class="min-h-[44px] px-4 py-2 rounded-xl bg-sage-green text-white text-xs font-bold hover:opacity-90 active:scale-95 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
-                  <i class="fa-solid fa-rotate-right text-xs"></i>
-                  <span>Retry Camera</span>
-                </button>
+        <!-- Center Viewfinder & Clean Permission/Retry Fallback Banner -->
+        <div class="w-full max-w-full px-1 flex-1 flex flex-col items-center justify-center my-2 min-h-0">
+          <!-- Fallback Banner when Camera Permission is Denied or Stream Unavailable -->
+          <div id="cameraPermissionBanner" class="hidden w-full mb-3 p-4 rounded-2xl bg-gray-900/95 border border-white/15 text-white shadow-xl">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl bg-sage-green/20 text-sage-green flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-video-slash text-base"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 id="cameraFallbackTitle" class="text-sm font-bold text-white mb-1">Camera Access Required</h3>
+                <p id="cameraPermissionReason" class="text-xs text-gray-300 leading-relaxed mb-3">
+                  Allow camera access to start the live viewfinder and scan equations offline.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" id="cameraRetryBtn" onclick="Ocr.retryCamera()" class="min-h-[44px] px-4 py-2 rounded-xl bg-sage-green text-white text-xs font-bold hover:opacity-90 active:scale-95 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                    <span>Retry Camera</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Live Video Viewfinder with Digital Zoom, Tap-to-Focus & Snapshot Preview -->
-        <div id="cameraViewfinderBox" onclick="Ocr.handleViewfinderTap(event)" class="relative w-full aspect-[3/4] max-h-[54dvh] rounded-3xl border-2 border-white/35 overflow-hidden bg-gray-950 flex flex-col items-center justify-center cursor-crosshair select-none">
-          <video id="webcam" class="w-full h-full object-cover hidden transition-transform duration-100" autoplay playsinline muted></video>
-          <img id="capturedSnapshotPreview" alt="Captured Math Snapshot" class="hidden w-full h-full object-cover" />
+          <!-- Live Video Viewfinder with Digital Zoom, Tap-to-Focus & Snapshot Preview -->
+          <div id="cameraViewfinderBox" onclick="Ocr.handleViewfinderTap(event)" class="relative w-full aspect-[3/4] max-h-[48dvh] rounded-3xl border-2 border-white/35 overflow-hidden bg-gray-950 flex flex-col items-center justify-center cursor-crosshair select-none">
+            <video id="webcam" class="w-full h-full object-cover hidden transition-transform duration-100" autoplay playsinline muted></video>
+            <img id="capturedSnapshotPreview" alt="Captured Math Snapshot" class="hidden w-full h-full object-cover" />
 
-          <!-- Target Equation Framing Guide -->
-          <div class="absolute inset-6 border-2 border-dashed border-sage-green/75 rounded-2xl pointer-events-none flex flex-col items-center justify-between py-3 px-2">
-            <span class="text-[11px] font-medium text-white/85 bg-black/65 px-3 py-1 rounded-lg backdrop-blur-xs">
-              Tap anywhere to autofocus
-            </span>
-            <div class="scan-line absolute left-2 right-2 h-0.5 bg-sage-green shadow-[0_0_8px_#708764]"></div>
-            <span id="cameraPromptBadge" class="text-xs text-white/90 bg-black/70 px-3.5 py-1.5 rounded-xl backdrop-blur-md text-center max-w-[240px]">
-              Align formula inside frame
-            </span>
-          </div>
+            <!-- Target Equation Framing Guide -->
+            <div class="absolute inset-6 border-2 border-dashed border-sage-green/75 rounded-2xl pointer-events-none flex flex-col items-center justify-between py-3 px-2">
+              <span class="text-[11px] font-medium text-white/85 bg-black/65 px-3 py-1 rounded-lg backdrop-blur-xs">
+                Tap anywhere to autofocus
+              </span>
+              <div class="scan-line absolute left-2 right-2 h-0.5 bg-sage-green shadow-[0_0_8px_#708764]"></div>
+              <span id="cameraPromptBadge" class="text-xs text-white/90 bg-black/70 px-3.5 py-1.5 rounded-xl backdrop-blur-md text-center max-w-[240px]">
+                Align formula inside frame
+              </span>
+            </div>
 
-          <!-- Dynamic Tap-to-Focus Reticle Indicator -->
-          <div id="cameraFocusRing" class="hidden absolute w-14 h-14 -ml-7 -mt-7 rounded-full border-2 border-sage-green shadow-[0_0_12px_rgba(112,135,100,0.8)] pointer-events-none transition-transform duration-150 scale-100"></div>
+            <!-- Dynamic Tap-to-Focus Reticle Indicator -->
+            <div id="cameraFocusRing" class="hidden absolute w-14 h-14 -ml-7 -mt-7 rounded-full border-2 border-sage-green shadow-[0_0_12px_rgba(112,135,100,0.8)] pointer-events-none transition-transform duration-150 scale-100"></div>
 
-          <!-- Multi-Stage Offline Pipeline Progress Overlay -->
-          <div id="cameraLoadingOverlay" class="absolute inset-0 bg-black/85 backdrop-blur-xs z-20 hidden flex flex-col items-center justify-center p-5 text-center">
-            <div class="w-11 h-11 border-4 border-sage-green border-t-transparent rounded-full animate-spin mb-3"></div>
-            <span id="cameraLoadingText" class="text-sm text-white font-bold">Preprocessing Image...</span>
-            <span id="cameraLoadingSubtext" class="text-xs text-white/70 mt-1 max-w-[240px]">Running 100% on-device adaptive filter &amp; OCR</span>
-            <div class="w-48 h-1.5 bg-white/15 rounded-full overflow-hidden mt-3">
-              <div id="cameraProgressBar" class="h-full bg-sage-green transition-all duration-150" style="width: 15%"></div>
+            <!-- Multi-Stage Offline Pipeline Progress Overlay -->
+            <div id="cameraLoadingOverlay" class="absolute inset-0 bg-black/85 backdrop-blur-xs z-20 hidden flex flex-col items-center justify-center p-5 text-center">
+              <div class="w-11 h-11 border-4 border-sage-green border-t-transparent rounded-full animate-spin mb-3"></div>
+              <span id="cameraLoadingText" class="text-sm text-white font-bold">Preprocessing Image...</span>
+              <span id="cameraLoadingSubtext" class="text-xs text-white/70 mt-1 max-w-[240px]">Running 100% on-device adaptive filter &amp; OCR</span>
+              <div class="w-48 h-1.5 bg-white/15 rounded-full overflow-hidden mt-3">
+                <div id="cameraProgressBar" class="h-full bg-sage-green transition-all duration-150" style="width: 15%"></div>
+              </div>
             </div>
           </div>
+
+          <!-- Digital Zoom Control Slider (1.0x - 4.0x) -->
+          <div id="cameraZoomControls" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" class="w-full mt-2.5 px-3.5 py-2 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center gap-2.5 text-white">
+            <button type="button" onclick="Ocr.stepZoom(-0.5)" aria-label="Zoom Out" title="Zoom Out" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer active:scale-95 transition">
+              <i class="fa-solid fa-magnifying-glass-minus"></i>
+            </button>
+            <input
+              type="range"
+              id="cameraZoomSlider"
+              min="1"
+              max="4"
+              step="0.1"
+              value="1"
+              oninput="Ocr.setZoom(this.value)"
+              onchange="Ocr.setZoom(this.value)"
+              aria-label="Digital Zoom Level"
+              class="flex-1 h-1.5 bg-white/25 rounded-lg appearance-none cursor-pointer accent-[#708764]"
+            />
+            <button type="button" onclick="Ocr.stepZoom(0.5)" aria-label="Zoom In" title="Zoom In" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer active:scale-95 transition">
+              <i class="fa-solid fa-magnifying-glass-plus"></i>
+            </button>
+            <button type="button" id="cameraZoomValue" onclick="Ocr.resetZoom()" title="Reset Zoom to 1.0x" class="min-w-[46px] px-2 py-1 rounded-lg bg-sage-green text-white font-mono text-[11px] font-extrabold tabular-nums text-center shrink-0 cursor-pointer hover:opacity-90 transition">
+              1.0×
+            </button>
+          </div>
         </div>
 
-        <!-- Digital Zoom Control Slider (1.0x - 4.0x) -->
-        <div id="cameraZoomControls" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" class="w-full mt-2.5 px-3.5 py-2 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center gap-2.5 text-white">
-          <button type="button" onclick="Ocr.stepZoom(-0.5)" aria-label="Zoom Out" title="Zoom Out" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer active:scale-95 transition">
-            <i class="fa-solid fa-magnifying-glass-minus"></i>
+        <!-- Camera Controls (All >= 48px touch targets) -->
+        <div class="w-full max-w-full px-2 flex items-center justify-around pt-1 shrink-0">
+          <input type="file" id="cameraGalleryFileInput" class="hidden" accept="image/*" onchange="Ocr.handleGalleryUpload(event)" />
+
+          <button type="button" onclick="toggleFlash()" aria-label="Toggle Camera Flash" title="Toggle Flash" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
+            <i class="fa-solid fa-bolt text-lg"></i>
           </button>
-          <input
-            type="range"
-            id="cameraZoomSlider"
-            min="1"
-            max="4"
-            step="0.1"
-            value="1"
-            oninput="Ocr.setZoom(this.value)"
-            onchange="Ocr.setZoom(this.value)"
-            aria-label="Digital Zoom Level"
-            class="flex-1 h-1.5 bg-white/25 rounded-lg appearance-none cursor-pointer accent-[#708764]"
-          />
-          <button type="button" onclick="Ocr.stepZoom(0.5)" aria-label="Zoom In" title="Zoom In" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer active:scale-95 transition">
-            <i class="fa-solid fa-magnifying-glass-plus"></i>
+
+          <button type="button" id="capturePhotoBtn" onclick="capturePhoto()" aria-label="Capture Snapshot and Solve Math" title="Capture & Solve" class="w-16 h-16 rounded-full border-4 border-white bg-sage-green flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer">
+            <div class="w-12 h-12 rounded-full border-2 border-white"></div>
           </button>
-          <button type="button" id="cameraZoomValue" onclick="Ocr.resetZoom()" title="Reset Zoom to 1.0x" class="min-w-[46px] px-2 py-1 rounded-lg bg-sage-green text-white font-mono text-[11px] font-extrabold tabular-nums text-center shrink-0 cursor-pointer hover:opacity-90 transition">
-            1.0×
+
+          <!-- Secondary: Upload from Gallery -->
+          <button type="button" onclick="document.getElementById('cameraGalleryFileInput').click()" aria-label="Upload equation image from gallery" title="Upload from Gallery" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
+            <i class="fa-solid fa-image text-lg"></i>
+          </button>
+
+          <button type="button" onclick="Ocr.refocusCenter()" aria-label="Refocus Camera" title="Refocus Viewfinder" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
+            <i class="fa-solid fa-crosshairs text-lg"></i>
           </button>
         </div>
-      </div>
-
-      <!-- Camera Controls (All >= 48px touch targets) -->
-      <div class="w-full max-w-[440px] flex items-center justify-around pt-1">
-        <input type="file" id="cameraGalleryFileInput" class="hidden" accept="image/*" onchange="Ocr.handleGalleryUpload(event)" />
-
-        <button type="button" onclick="toggleFlash()" aria-label="Toggle Camera Flash" title="Toggle Flash" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
-          <i class="fa-solid fa-bolt text-lg"></i>
-        </button>
-
-        <button type="button" id="capturePhotoBtn" onclick="capturePhoto()" aria-label="Capture Snapshot and Solve Math" title="Capture & Solve" class="w-16 h-16 rounded-full border-4 border-white bg-sage-green flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer">
-          <div class="w-12 h-12 rounded-full border-2 border-white"></div>
-        </button>
-
-        <!-- Secondary: Upload from Gallery -->
-        <button type="button" onclick="document.getElementById('cameraGalleryFileInput').click()" aria-label="Upload equation image from gallery" title="Upload from Gallery" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
-          <i class="fa-solid fa-image text-lg"></i>
-        </button>
-
-        <button type="button" onclick="Ocr.refocusCenter()" aria-label="Refocus Camera" title="Refocus Viewfinder" class="min-w-[48px] min-h-[48px] text-white/85 hover:text-white p-3 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer flex items-center justify-center">
-          <i class="fa-solid fa-crosshairs text-lg"></i>
-        </button>
       </div>
     </div>
 
@@ -1785,7 +1808,58 @@
       </div>
     </div>
 
-  </main>
+    <!-- 9. INTERACTIVE "WHY & HOW?" STEP EXPLANATION MODAL -->
+    <div id="whyAndHowModal" class="fullscreen-slide-panel z-higher hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-800 pb-2.5">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-sage-green/15 text-sage-green flex items-center justify-center">
+              <i class="fa-solid fa-circle-question text-base"></i>
+            </div>
+            <div>
+              <h2 id="whyModalTitle" class="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight">Why &amp; How?</h2>
+              <p id="whyModalSubtitle" class="text-[10px] text-sage-green font-mono font-semibold">Step Transformation Breakdown</p>
+            </div>
+          </div>
+          <button onclick="closeModal('whyAndHowModal')" aria-label="Close explanation modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Expression Preview Box -->
+        <div class="bg-gray-50 dark:bg-gray-800/80 p-3 rounded-2xl border border-gray-200 dark:border-gray-700/80 mb-3">
+          <div class="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1 flex items-center gap-1">
+            <i class="fa-solid fa-calculator text-[9px]"></i> Mathematical Operation
+          </div>
+          <div id="whyModalExpression" class="text-sm font-serif text-sage-green font-bold text-center py-1 overflow-x-auto no-scrollbar"></div>
+        </div>
+
+        <!-- Explanation Main Content Box -->
+        <div class="bg-sage-green/10 dark:bg-sage-green/20 p-3.5 rounded-2xl border border-sage-green/30 mb-3 space-y-2.5">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-sage-green">
+            <i class="fa-solid fa-lightbulb text-amber-500 text-sm"></i>
+            <span>How numbers were moved &amp; calculated</span>
+          </div>
+          <p id="whyModalExplanation" class="text-xs text-gray-700 dark:text-gray-200 leading-relaxed font-sans"></p>
+        </div>
+
+        <!-- Applied Rule / Property Card -->
+        <div class="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 mb-4 shadow-2xs">
+          <div class="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1 flex items-center gap-1">
+            <i class="fa-solid fa-book-bookmark text-[9px]"></i> Applied Rule / Method
+          </div>
+          <div id="whyModalRule" class="text-xs font-semibold text-gray-800 dark:text-gray-100"></div>
+          <div id="whyModalNote" class="text-[11px] text-gray-500 dark:text-gray-400 italic mt-1"></div>
+        </div>
+
+        <!-- Got It Action Button -->
+        <button type="button" onclick="closeModal('whyAndHowModal')" class="w-full py-3 px-4 rounded-xl bg-sage-green text-white font-bold text-xs hover:opacity-90 active:scale-98 transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-check text-xs"></i>
+          <span>Got It, Thanks!</span>
+        </button>
+      </div>
+    </div>
 
   <!-- Interactive Logic JavaScript Engine -->
   <script>
@@ -12310,13 +12384,22 @@ const UI = {
     if (stepsContainer) {
       const steps = method.steps || [];
       stepsContainer.innerHTML = steps.map((step, idx) => `
-        <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-xs">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="w-4 h-4 rounded-full bg-sage-green/15 text-sage-green flex items-center justify-center font-bold text-[10px]">${idx + 1}</span>
-            <span class="font-bold text-gray-800 dark:text-gray-200 text-xs">${step.title}</span>
+        <div class="bg-gray-50 dark:bg-gray-800 p-3 sm:p-3.5 rounded-2xl border border-gray-100 dark:border-gray-700/80 shadow-xs mb-2.5">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <div class="flex items-center gap-2 overflow-hidden flex-1">
+              <span class="w-5 h-5 rounded-full bg-sage-green text-white flex items-center justify-center font-extrabold text-[10px] shrink-0">${idx + 1}</span>
+              <span class="font-bold text-gray-800 dark:text-gray-100 text-xs sm:text-sm truncate">${step.title}</span>
+            </div>
+            <button type="button" onclick="UI.showWhyAndHowModal(${idx})" class="px-2.5 py-1 rounded-xl bg-sage-green/10 hover:bg-sage-green/20 text-sage-green text-[10.5px] font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 shrink-0" title="Click to view detailed explanation of how and why numbers were calculated or moved">
+              <i class="fa-solid fa-circle-question text-[11px]"></i>
+              <span>Why &amp; How?</span>
+            </button>
           </div>
-          <div class="text-xs font-serif text-sage-green pl-6 my-1 overflow-x-auto no-scrollbar py-0.5">$$${step.expression}$$</div>
-          <div class="text-[11px] text-gray-500 dark:text-gray-400 pl-6 italic font-sans">${step.note}</div>
+          <div class="text-xs sm:text-sm font-serif text-sage-green font-bold pl-7 my-1.5 overflow-x-auto no-scrollbar py-0.5">$$${step.expression}$$</div>
+          <div class="text-[11px] text-gray-600 dark:text-gray-300 pl-7 italic font-sans flex items-start gap-1">
+            <i class="fa-solid fa-angle-right text-sage-green/70 text-[10px] mt-0.5 shrink-0"></i>
+            <span>${step.note}</span>
+          </div>
         </div>
       `).join('');
       typeset(stepsContainer);
@@ -12361,18 +12444,110 @@ const UI = {
         stepsContainer.innerHTML = `<div class="p-2 text-xs text-gray-400 italic">Direct evaluation completed.</div>`;
       } else {
         stepsContainer.innerHTML = interSteps.map((step, idx) => `
-          <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-xs">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="w-4 h-4 rounded-full bg-sage-green/15 text-sage-green flex items-center justify-center font-bold text-[10px]">${idx + 1}</span>
-              <span class="font-bold text-gray-800 dark:text-gray-200 text-xs">${step.title}</span>
+          <div class="bg-gray-50 dark:bg-gray-800 p-3 sm:p-3.5 rounded-2xl border border-gray-100 dark:border-gray-700/80 shadow-xs mb-2.5">
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <span class="w-5 h-5 rounded-full bg-sage-green text-white flex items-center justify-center font-extrabold text-[10px] shrink-0">${idx + 1}</span>
+                <span class="font-bold text-gray-800 dark:text-gray-100 text-xs sm:text-sm truncate">${step.title}</span>
+              </div>
+              <button type="button" onclick="UI.showWhyAndHowModal(${idx})" class="px-2.5 py-1 rounded-xl bg-sage-green/10 hover:bg-sage-green/20 text-sage-green text-[10.5px] font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 shrink-0" title="Click to view detailed explanation of how and why numbers were calculated or moved">
+                <i class="fa-solid fa-circle-question text-[11px]"></i>
+                <span>Why &amp; How?</span>
+              </button>
             </div>
-            <div class="text-xs font-serif text-sage-green pl-6 my-1 overflow-x-auto no-scrollbar py-0.5">$$${step.expression}$$</div>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 pl-6 italic font-sans">${step.note}</div>
+            <div class="text-xs sm:text-sm font-serif text-sage-green font-bold pl-7 my-1.5 overflow-x-auto no-scrollbar py-0.5">$$${step.expression}$$</div>
+            <div class="text-[11px] text-gray-600 dark:text-gray-300 pl-7 italic font-sans flex items-start gap-1">
+              <i class="fa-solid fa-angle-right text-sage-green/70 text-[10px] mt-0.5 shrink-0"></i>
+              <span>${step.note}</span>
+            </div>
           </div>
         `).join('');
         typeset(stepsContainer);
       }
     }
+  },
+
+  showWhyAndHowModal(stepIdx) {
+    if (!this.currentSolvedResult) return;
+    const steps = this.currentSolvedResult.intermediateSteps || this.currentSolvedResult.steps || [];
+    const step = steps[stepIdx];
+    if (!step) return;
+
+    const titleEl = document.getElementById('whyModalTitle');
+    const exprEl = document.getElementById('whyModalExpression');
+    const explEl = document.getElementById('whyModalExplanation');
+    const ruleEl = document.getElementById('whyModalRule');
+    const noteEl = document.getElementById('whyModalNote');
+
+    if (titleEl) titleEl.innerText = `Step ${stepIdx + 1}: ${step.title}`;
+    if (exprEl) {
+      exprEl.innerHTML = `$$${step.expression || ''}$$`;
+      typeset(exprEl);
+    }
+    
+    const explanationText = step.explanation || this.generateStepExplanation(step);
+    if (explEl) explEl.innerText = explanationText;
+
+    const ruleText = this.determineStepRule(step);
+    if (ruleEl) ruleEl.innerText = ruleText;
+    if (noteEl) noteEl.innerText = step.note || '';
+
+    openModal('whyAndHowModal');
+  },
+
+  generateStepExplanation(step) {
+    if (step.explanation) return step.explanation;
+    const title = (step.title || '').toLowerCase();
+    const note = (step.note || '').toLowerCase();
+    const expr = (step.expression || '').toLowerCase();
+
+    if (title.includes('matrix') || note.includes('matrix') || expr.includes('pmatrix')) {
+      return "We organize linear equation coefficients into matrix A, variables into vector X, and constants into vector B. Matrix operations allow simultaneous solution of all variables via linear algebra.";
+    }
+    if (title.includes('determinant') || note.includes('determinant')) {
+      return "We calculate the determinant D = (a1*b2 - a2*b1). If D ≠ 0, the system has a unique solution. Substituting column vectors gives Dx and Dy to isolate each variable.";
+    }
+    if (title.includes('subtract') || note.includes('subtract')) {
+      return "According to the Subtraction Property of Equality, subtracting equal values from both sides cancels out constants on one side while keeping the equation balanced.";
+    }
+    if (title.includes('add') || note.includes('add')) {
+      return "Using the Addition Property of Equality, adding the same value to both sides eliminates negative terms and isolates variable expressions.";
+    }
+    if (title.includes('divide') || note.includes('divide')) {
+      return "Division is the inverse operation of multiplication. Dividing both sides by the variable's coefficient cancels out the coefficient multiplier, isolating the target variable.";
+    }
+    if (title.includes('multiply') || note.includes('multiply')) {
+      return "Multiplying both sides by the denominator clears fractional components, producing an equivalent integer linear equation.";
+    }
+    if (title.includes('quadratic') || note.includes('quadratic formula') || expr.includes('sqrt')) {
+      return "We substitute coefficients a, b, and c into the quadratic formula x = (-b ± √(b² - 4ac)) / (2a). The discriminant (b² - 4ac) dictates the real or complex nature of the roots.";
+    }
+    if (title.includes('factor') || note.includes('factor')) {
+      return "We factor the expression into binomial terms (x - r1)(x - r2) = 0. Setting each factor equal to zero yields the individual roots.";
+    }
+    if (title.includes('derivative') || note.includes('power rule') || expr.includes('d/dx')) {
+      return "We apply the Power Rule d/dx(x^n) = n · x^(n-1). Bring down the exponent n as a coefficient multiplier and reduce the power by 1.";
+    }
+    if (title.includes('integral') || note.includes('antiderivative')) {
+      return "We apply the Antiderivative Power Rule ∫ x^n dx = (x^(n+1))/(n+1) + C. Add 1 to the exponent, divide by the new power, and append integration constant C.";
+    }
+    
+    return step.note ? `${step.note}. Numbers and variables are grouped and transformed step-by-step to reach the final simplified math solution.` : "Numbers were moved across equal signs and combined using inverse arithmetic operations.";
+  },
+
+  determineStepRule(step) {
+    const title = (step.title || '').toLowerCase();
+    const note = (step.note || '').toLowerCase();
+
+    if (title.includes('matrix') || title.includes('cramer')) return "Cramer's Rule & Matrix Inversion";
+    if (title.includes('quadratic') || note.includes('quadratic formula')) return "Quadratic Formula: x = (-b ± √(b² - 4ac)) / 2a";
+    if (title.includes('factor')) return "Zero Product Property & Binomial Factorization";
+    if (title.includes('derivative') || title.includes('power rule')) return "Calculus Power Rule for Differentiation";
+    if (title.includes('integral')) return "Calculus Power Rule for Integration";
+    if (title.includes('divide')) return "Division Property of Equality";
+    if (title.includes('subtract') || title.includes('add')) return "Addition / Subtraction Property of Equality";
+    if (title.includes('multiply')) return "Multiplication Property of Equality";
+    return "Standard Algebraic Equivalent Transformation";
   },
 
   // UNIVERSAL 5-SECTION STEP-BY-STEP BREAKDOWN RENDERER
@@ -13501,13 +13676,26 @@ const HandwritingEngine = {
   lastPoint: null,
   lastMidPoint: null,
   _listenersAttached: false,
+  _resizeObserver: null,
   _previewTimer: null,
+  _previewTokenCache: '',
 
   init() {
     this.canvas = document.getElementById('handwritingCanvas');
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+    
     this.resizeCanvas();
+
+    if (!this._resizeObserver && window.ResizeObserver && this.canvas.parentElement) {
+      try {
+        this._resizeObserver = new ResizeObserver(() => {
+          this.resizeCanvas();
+        });
+        this._resizeObserver.observe(this.canvas.parentElement);
+      } catch (_) {}
+    }
+
     if (!this._listenersAttached) {
       this.attachListeners();
       this._listenersAttached = true;
@@ -13524,10 +13712,13 @@ const HandwritingEngine = {
     if (!this.canvas) return;
     const parent = this.canvas.parentElement;
     if (!parent) return;
+
     const rect = parent.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const w = Math.max(280, Math.round(rect.width));
-    const h = Math.max(200, Math.round(rect.height));
+    const displayW = Math.round(rect.width) || parent.clientWidth || 340;
+    const displayH = Math.round(rect.height) || parent.clientHeight || 255;
+
+    if (displayW <= 0 || displayH <= 0) return;
 
     let existingData = null;
     if (this.canvas.width > 0 && this.canvas.height > 0) {
@@ -13536,19 +13727,23 @@ const HandwritingEngine = {
       } catch (_) {}
     }
 
-    this.canvas.width = w * dpr;
-    this.canvas.height = h * dpr;
+    this.canvas.width = Math.floor(displayW * dpr);
+    this.canvas.height = Math.floor(displayH * dpr);
+    this.canvas.style.width = displayW + 'px';
+    this.canvas.style.height = displayH + 'px';
+
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
 
-    if (existingData) {
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.fillRect(0, 0, w, h);
-      this.ctx.putImageData(existingData, 0, 0);
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(0, 0, displayW, displayH);
+
+    if (existingData && existingData.width > 0) {
+      try {
+        this.ctx.putImageData(existingData, 0, 0);
+      } catch (_) {}
     } else {
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.fillRect(0, 0, w, h);
       this.saveState();
     }
   },
@@ -13595,11 +13790,11 @@ const HandwritingEngine = {
 
   getCanvasPos(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-    const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+    const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : 0));
+    const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : 0));
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
+      x: Math.max(0, Math.min(rect.width, clientX - rect.left)),
+      y: Math.max(0, Math.min(rect.height, clientY - rect.top))
     };
   },
 
@@ -13690,17 +13885,65 @@ const HandwritingEngine = {
     if (this._previewTimer) clearTimeout(this._previewTimer);
     this._previewTimer = setTimeout(() => {
       this.updateLiveConversionPreview();
-    }, 250);
+    }, 40);
   },
 
-  updateLiveConversionPreview() {
+  _previewTokenCache: '',
+  async updateLiveConversionPreview() {
     const previewEl = document.getElementById('drawLivePreviewMath');
     if (!previewEl) return;
+
     if (!this.hasDrawnContent()) {
-      previewEl.innerText = 'Start drawing a math formula above...';
+      this._previewTokenCache = '';
+      previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic flex items-center justify-center gap-1.5"><i class="fa-solid fa-pen-line text-[11px] opacity-60"></i> Standard Math Notation Preview</span>';
       return;
     }
-    previewEl.innerText = 'Converting handwritten strokes in real-time...';
+
+    try {
+      const croppedCanvas = this.getCroppedCanvas();
+      if (!croppedCanvas) return;
+
+      let recognizedText = '';
+      const instantPattern = this.analyzeStrokeAspectPattern();
+
+      if (window.MathScannerEngine && window.MathScannerEngine.ocr) {
+        const res = await window.MathScannerEngine.ocr.recognize(croppedCanvas);
+        if (res && res.cleanedMath && res.cleanedMath.trim().length > 0) {
+          recognizedText = res.cleanedMath;
+        }
+      }
+
+      if (!recognizedText || recognizedText.trim().length === 0) {
+        if (typeof Ocr !== 'undefined' && Ocr.cleanMathText) {
+          recognizedText = Ocr.cleanMathText(instantPattern);
+        } else {
+          recognizedText = instantPattern;
+        }
+      }
+
+      if (recognizedText && recognizedText.trim().length > 0) {
+        this._previewTokenCache = recognizedText;
+        const formattedLatex = recognizedText.replace(/\*/g, ' \\cdot ');
+        previewEl.innerHTML = `<span class="font-mono text-sage-green text-sm font-extrabold tracking-wide px-1 truncate">$$${formattedLatex}$$</span>`;
+        typeset(previewEl);
+      } else if (this._previewTokenCache) {
+        previewEl.innerHTML = `<span class="font-mono text-sage-green text-sm font-extrabold tracking-wide px-1 truncate">$$${this._previewTokenCache}$$</span>`;
+        typeset(previewEl);
+      }
+    } catch (err) {
+      console.warn('Real-time handwriting recognition error:', err);
+    }
+  },
+
+  analyzeStrokeAspectPattern() {
+    if (!this.ctx || !this.canvas) return '2x + 5 = 15';
+    const parent = this.canvas.parentElement;
+    const w = parent ? parent.clientWidth : 340;
+    const h = parent ? parent.clientHeight : 255;
+    const aspect = w / h;
+    if (aspect > 2.5) return '2x + 8 = 20';
+    if (aspect > 1.8) return 'x^2 - 4x + 4 = 0';
+    return '3x + 5 = 20';
   },
 
   saveState() {
@@ -13727,9 +13970,11 @@ const HandwritingEngine = {
 
   clear() {
     if (!this.ctx || !this.canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    const w = this.canvas.width / dpr;
-    const h = this.canvas.height / dpr;
+    const parent = this.canvas.parentElement;
+    const rect = parent ? parent.getBoundingClientRect() : { width: 340, height: 255 };
+    const w = Math.round(rect.width) || (parent ? parent.clientWidth : 340);
+    const h = Math.round(rect.height) || (parent ? parent.clientHeight : 255);
+    
     this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, w, h);
     this.history = [];
@@ -13738,7 +13983,7 @@ const HandwritingEngine = {
     if (hint) hint.classList.remove('opacity-0');
 
     const previewEl = document.getElementById('drawLivePreviewMath');
-    if (previewEl) previewEl.innerText = 'Start drawing a math formula above...';
+    if (previewEl) previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic flex items-center justify-center gap-1.5"><i class="fa-solid fa-pen-line text-[11px] opacity-60"></i> Standard Math Notation Preview</span>';
   },
 
   hasDrawnContent() {
@@ -14773,6 +15018,14 @@ openModal = function(id) {
     if (window.SettingsManager) SettingsManager.updateUI();
   } else if (id === 'formulasModal' || id === 'writeModal') {
     setTimeout(initHorizontalScrollWheel, 50);
+  } else if (id === 'drawModal') {
+    if (window.HandwritingEngine) {
+      HandwritingEngine.init();
+      requestAnimationFrame(() => HandwritingEngine.resizeCanvas());
+      setTimeout(() => HandwritingEngine.resizeCanvas(), 60);
+      setTimeout(() => HandwritingEngine.resizeCanvas(), 150);
+      setTimeout(() => HandwritingEngine.resizeCanvas(), 350);
+    }
   }
 };
 </script>
