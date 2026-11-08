@@ -12338,6 +12338,68 @@ const UI = {
       ];
     }
 
+    if (raw.includes('d/d') || raw.includes('derivative') || raw.includes('diff')) {
+      return [
+        {
+          id: 'power_rule',
+          name: 'Power Rule',
+          badge: 'Symbolic',
+          formulaTitle: 'Calculus Power Rule Differentiation',
+          formulaLatex: '\\frac{d}{dx}[x^n] = n \\cdot x^{n-1}',
+          substitution: `\\frac{d}{dx}[${item.query || 'f(x)'}] = ${ans}`,
+          steps: [
+            { title: 'Identify Additive Terms', expression: `f(x) = ${item.query || ''}`, note: 'Separate expression into monomial terms.' },
+            { title: 'Apply Power Rule to Each Monomial', expression: '\\frac{d}{dx}[c \\cdot x^n] = c \\cdot n \\cdot x^{n-1}', note: 'Multiply by exponent and reduce power by 1.' },
+            { title: 'Combine Derivative Terms', expression: `f'(x) = ${ans}`, note: 'Sum individual monomial derivatives.' }
+          ]
+        },
+        {
+          id: 'limit_def',
+          name: 'Limit Definition',
+          badge: 'First Principles',
+          formulaTitle: 'First Principles Limit Definition of Derivative',
+          formulaLatex: 'f\'(x) = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}',
+          substitution: `\\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h} = ${ans}`,
+          steps: [
+            { title: 'Substitute f(x+h) into Quotient', expression: '\\frac{f(x+h) - f(x)}{h}', note: 'Set up difference quotient.' },
+            { title: 'Expand Polynomial & Cancel h Factor', expression: '\\lim_{h \\to 0} \\left[ \\text{Expanded Terms} \\right]', note: 'Eliminate 0/0 indeterminate form.' },
+            { title: 'Evaluate Limit as h → 0', expression: `f'(x) = ${ans}`, note: 'Set remaining h terms to zero.' }
+          ]
+        }
+      ];
+    }
+
+    if (raw.includes('integral') || raw.includes('integrate') || raw.includes('int(')) {
+      return [
+        {
+          id: 'antideriv_power',
+          name: 'Power Rule Integral',
+          badge: 'Indefinite',
+          formulaTitle: 'Antiderivative Power Rule',
+          formulaLatex: '\\int x^n \\, dx = \\frac{x^{n+1}}{n+1} + C, \\quad (n \\neq -1)',
+          substitution: `\\int \\left(${item.query || ''}\\right) dx = ${ans}`,
+          steps: [
+            { title: 'Identify Integrand Monomials', expression: `\\int f(x) \\, dx = \\sum \\int c_i x^n \\, dx`, note: 'Apply linearity property of integration.' },
+            { title: 'Add 1 to Exponent & Divide by New Power', expression: '\\int x^n \\, dx = \\frac{x^{n+1}}{n+1}', note: 'Reverse differentiation power rule.' },
+            { title: 'Include Constant of Integration C', expression: `F(x) = ${ans}`, note: 'Append constant C for general antiderivative.' }
+          ]
+        },
+        {
+          id: 'riemann_sum',
+          name: 'Riemann Sum',
+          badge: 'Numerical',
+          formulaTitle: 'Definite Integration via Limit of Riemann Sums',
+          formulaLatex: '\\int_a^b f(x) \\, dx = \\lim_{n \\to \\infty} \\sum_{i=1}^n f(x_i) \\Delta x',
+          substitution: `\\int \\left(${item.query || ''}\\right) dx \\approx ${ans}`,
+          steps: [
+            { title: 'Partition Interval into n Subintervals', expression: '\\Delta x = \\frac{b - a}{n}, \\quad x_i = a + i \\Delta x', note: 'Divide region into rectangular strips.' },
+            { title: 'Sum Area of n Approximating Rectangles', expression: 'S_n = \\sum_{i=1}^n f(x_i) \\Delta x', note: 'Evaluate right-endpoint height products.' },
+            { title: 'Compute Limit as n → ∞', expression: `\\text{Area} = ${ans}`, note: 'Limit yields exact antiderivative magnitude.' }
+          ]
+        }
+      ];
+    }
+
     return null;
   },
 
