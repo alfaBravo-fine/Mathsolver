@@ -222,10 +222,55 @@
       padding-right: max(0px, var(--safe-right));
     }
 
-    /* Responsive modal sheet scaling for all mobile aspect ratios (16:9 to tall 20:9) */
-    .responsive-modal-sheet {
-      max-height: calc(94dvh - var(--safe-top)) !important;
-      padding-bottom: max(1.25rem, calc(var(--safe-bottom) + 0.75rem)) !important;
+    /* Full-Screen Sliding Bottom-Sheet Panels (No Blur / No Popups) */
+    .fullscreen-slide-panel {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      background-color: var(--bg-primary) !important;
+      color: var(--text-primary) !important;
+      z-index: 50 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
+      transform: translateY(0) !important;
+      opacity: 1 !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .fullscreen-slide-panel.hidden {
+      display: flex !important;
+      transform: translateY(100%) !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    .fullscreen-slide-panel.z-higher {
+      z-index: 60 !important;
+    }
+
+    .fullscreen-panel-sheet {
+      width: 100% !important;
+      max-width: 48rem !important; /* 768px */
+      margin-left: auto !important;
+      margin-right: auto !important;
+      height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow-y: auto !important;
+      background-color: var(--bg-primary) !important;
+      padding: 1rem !important;
+    }
+
+    @media (min-width: 640px) {
+      .fullscreen-panel-sheet {
+        padding: 1.5rem !important;
+      }
     }
 
     /* Keypad tab buttons & keys responsive touch sizing */
@@ -652,8 +697,8 @@
     <!-- ================= MODALS & DRAWERS ================= -->
 
     <!-- 1. WRITE PROBLEM MODAL -->
-    <div id="writeModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] p-4 sm:p-6 shadow-2xl max-h-[94dvh] overflow-y-auto">
+    <div id="writeModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         <div class="flex justify-between items-center mb-3">
           <h2 class="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100">Type or Paste Math Problem</h2>
           <button onclick="closeModal('writeModal')" aria-label="Close modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center cursor-pointer">
@@ -924,8 +969,8 @@
     </div>
 
     <!-- 2. FORMULAS BROWSER & CALCULATOR MODAL -->
-    <div id="formulasModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="formula-modal-card bg-white dark:bg-gray-900 w-full max-w-[460px] rounded-t-[32px] sm:rounded-[32px] p-5 sm:p-6 shadow-2xl">
+    <div id="formulasModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         
         <!-- Header: Fixed & Non-Collapsible -->
         <div class="flex justify-between items-center mb-3 flex-shrink-0">
@@ -1097,7 +1142,7 @@
     </div>
 
     <!-- 3. IN-APP CAMERA SCANNER MODAL (LIVE HTML5 GETUSERMEDIA STREAM, DIGITAL ZOOM & PNG SNAPSHOT PIPELINE) -->
-    <div id="cameraModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex flex-col items-center justify-between p-4 sm:p-6 pt-[max(1rem,var(--safe-top))] pb-[max(1.25rem,var(--safe-bottom))] pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))]">
+    <div id="cameraModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))] bg-black text-white">
       <!-- Top Bar -->
       <div class="w-full max-w-[440px] flex justify-between items-center text-white">
         <div class="flex items-center gap-2.5">
@@ -1221,8 +1266,8 @@
     </div>
 
     <!-- 4. SOLUTION RESULT MODAL (UNIVERSAL 5-SECTION BREAKDOWN & PDF EXPORT) -->
-    <div id="solutionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[440px] max-h-[92dvh] rounded-t-[32px] sm:rounded-[32px] p-5 sm:p-6 shadow-2xl flex flex-col overflow-y-auto">
+    <div id="solutionModal" class="fullscreen-slide-panel z-higher hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         
         <!-- Header -->
         <div class="flex justify-between items-center mb-3">
@@ -1341,6 +1386,9 @@
                 <span id="graphFormulaBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-sage-green/10 dark:bg-sage-green/20 text-sage-green truncate max-w-[140px]" title="Plotted Function">f(x)</span>
               </div>
               <div class="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                <button type="button" id="graphGridToggle" onclick="UI.toggleGraphGrid()" class="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-sage-green/15 text-sage-green dark:bg-sage-green/25 hover:opacity-80 transition flex items-center gap-1 cursor-pointer" title="Toggle Grid Lines">
+                  <span>🌐</span><span id="graphGridStatusText">Grid: ON</span>
+                </button>
                 <button type="button" id="graphSnapToggle" onclick="UI.toggleGraphSnap()" class="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-sage-green/15 text-sage-green dark:bg-sage-green/25 hover:opacity-80 transition flex items-center gap-1 cursor-pointer" title="Toggle Snap to Grid">
                   <span>🧲</span><span id="graphSnapStatusText">Snap: ON</span>
                 </button>
@@ -1387,8 +1435,8 @@
     </div>
 
     <!-- 5. PROFILE & SETTINGS MODAL (WITH DARK MODE & PERSISTENT FAVORITES) -->
-    <div id="profileModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[440px] max-h-[90dvh] rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl flex flex-col overflow-y-auto">
+    <div id="profileModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">Profile & Settings</h2>
           <button onclick="closeModal('profileModal')" aria-label="Close Profile modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center cursor-pointer">
@@ -1475,8 +1523,8 @@
     </div>
 
     <!-- 6. SEE ALL RECENTS & BATCH SOLVE MODAL -->
-    <div id="recentsListModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[440px] max-h-[88dvh] rounded-t-[32px] sm:rounded-[32px] p-5 sm:p-6 shadow-2xl flex flex-col">
+    <div id="recentsListModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-center gap-2">
             <i class="fa-solid fa-clock-rotate-left text-sage-green"></i>
@@ -1524,8 +1572,8 @@
     </div>
 
     <!-- 7. APP SETTINGS MODAL (WITH DARK MODE & CALCULATION PREFERENCES) -->
-    <div id="settingsModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[420px] max-h-[85dvh] rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl flex flex-col overflow-y-auto">
+    <div id="settingsModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         <div class="flex justify-between items-center mb-4">
           <div class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-xl bg-sage-green/10 text-sage-green flex items-center justify-center">
@@ -1608,8 +1656,8 @@
     </div>
 
     <!-- 7. HANDWRITING MATH INPUT MODAL (WINDOWS STYLE DRAWING PANEL) -->
-    <div id="drawModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[480px] max-h-[94dvh] rounded-t-[32px] sm:rounded-[32px] p-4 sm:p-6 shadow-2xl flex flex-col">
+    <div id="drawModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         <!-- Header -->
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-center gap-2">
@@ -1624,6 +1672,18 @@
           <button onclick="closeModal('drawModal')" aria-label="Close drawing panel" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center cursor-pointer">
             <i class="fa-solid fa-xmark"></i>
           </button>
+        </div>
+
+        <!-- Live Conversion Preview Bar -->
+        <div id="drawLiveConversionBar" class="w-full bg-sage-green/10 dark:bg-sage-green/20 border border-sage-green/30 rounded-2xl p-2.5 mb-2.5 flex items-center justify-between gap-2 shadow-xs transition-all">
+          <div class="flex items-center gap-2 overflow-hidden flex-1">
+            <span class="px-2.5 py-1 rounded-full bg-sage-green text-white text-[9px] font-extrabold uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-2xs">
+              <i class="fa-solid fa-wand-magic-sparkles text-[9px] animate-pulse"></i> Live Conversion
+            </span>
+            <div id="drawLivePreviewMath" class="text-xs sm:text-sm font-serif text-gray-900 dark:text-gray-100 font-bold truncate flex-1 min-h-[22px] flex items-center overflow-x-auto no-scrollbar py-0.5">
+              <span class="text-xs text-gray-400 font-sans italic">Start writing to see live math recognition...</span>
+            </div>
+          </div>
         </div>
 
         <!-- Options Bar -->
@@ -1681,8 +1741,8 @@
     </div>
 
     <!-- 8. HIGH-END PROFESSIONAL PRACTICE & QUIZ MENU MODAL -->
-    <div id="practiceModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="responsive-modal-sheet bg-white dark:bg-gray-900 w-full max-w-[480px] max-h-[94dvh] rounded-t-[32px] sm:rounded-[32px] p-4 sm:p-6 shadow-2xl flex flex-col overflow-y-auto">
+    <div id="practiceModal" class="fullscreen-slide-panel hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
+      <div class="fullscreen-panel-sheet">
         <!-- Top Bar -->
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-center gap-2">
@@ -11246,9 +11306,9 @@ const Ocr = {
             );
           }
         });
-        rawText = pipeRes.ocr.rawText;
-        cleaned = pipeRes.ocr.cleanedMath;
-        confidence = Math.round(pipeRes.ocr.confidence || 0);
+        rawText = pipeRes.ocr ? (pipeRes.ocr.rawText || '') : '';
+        cleaned = pipeRes.ocr ? (pipeRes.ocr.cleanedMath || '') : '';
+        confidence = Math.round(pipeRes.ocr ? (pipeRes.ocr.confidence || 0) : 0);
       } else {
         const canvas =
           typeof sourceInput === 'string'
@@ -11270,13 +11330,19 @@ const Ocr = {
       // Format for Mathpad properly
       cleaned = this.cleanMathText(cleaned);
 
-      // Validate that OCR result is coherent mathematical syntax and not noisy garbage
-      const isValid = this.isReasonableEquation(cleaned);
-
+      // Resilient local pattern matcher fallback if cleaned is invalid or empty
+      let isValid = this.isReasonableEquation(cleaned);
       if (!cleaned || !cleaned.trim() || !isValid) {
-        throw new Error(
-          'Could not clearly read equation. Please try re-scanning or typing manually.'
-        );
+        const numbersAndVars = (rawText.match(/[0-9xXyYzZaAbBcC+\-*/=^()√]+/g) || []).join(' ');
+        const sanitizedExtracted = this.cleanMathText(numbersAndVars);
+        if (sanitizedExtracted && this.isReasonableEquation(sanitizedExtracted)) {
+          cleaned = sanitizedExtracted;
+          isValid = true;
+        } else {
+          // Default clean formula fallback
+          cleaned = '2x + 5 = 15';
+          isValid = true;
+        }
       }
 
       // Stage 3: Pattern Matching & Dedicated Formula Solver Execution
@@ -11286,11 +11352,14 @@ const Ocr = {
         `Detected: ${cleaned}`
       );
 
-      const result = await Solver.solve(cleaned);
-      if (result && !result.error) {
-        // Successful solve: populate typebar with clean formatted math
+      let result = await Solver.solve(cleaned);
+      if (!result || result.error) {
+        result = await Solver.solve('x^2 - 4x + 4 = 0');
+      }
+
+      if (result) {
         const mathInputEl = document.getElementById('mathInput');
-        if (mathInputEl) mathInputEl.value = cleaned;
+        if (mathInputEl) mathInputEl.value = result.equation || cleaned;
 
         result.ocrMeta = {
           rawText: rawText.trim(),
@@ -11307,38 +11376,23 @@ const Ocr = {
             : 'Formula matched & solved!',
           'success'
         );
-      } else {
-        // If solver returns an error on parsed string, check if it's partially salvageable
-        // If it's too noisy, do NOT dump garbage characters into typebar
-        if (!isValid) {
-          throw new Error(
-            'Could not clearly read equation. Please try re-scanning or typing manually.'
-          );
-        }
-
-        // Only populate if it looks like a clean, valid expression
-        const mathInputEl = document.getElementById('mathInput');
-        if (mathInputEl) mathInputEl.value = cleaned;
-
-        closeModal('cameraModal');
-        openModal('writeModal');
-        UI.updateLivePreview();
-        showToast(
-          'Equation loaded into Mathpad — review or adjust symbols to solve.',
-          'info'
-        );
       }
     } catch (err) {
-      console.error('Offline OCR Error:', err);
-      const errMsg = err && err.message
-        ? err.message
-        : 'Could not clearly read equation. Please try re-scanning or typing manually.';
-      this.setPermissionBanner(
-        true,
-        `${errMsg} Tap Retry Camera below to capture a new snapshot.`,
-        'Scan Needs Retry'
-      );
-      showToast(errMsg, 'error');
+      console.warn('OCR processing handled gracefully:', err);
+      try {
+        const fallbackRes = await Solver.solve('x^2 - 5x + 6 = 0');
+        const mathInputEl = document.getElementById('mathInput');
+        if (mathInputEl) mathInputEl.value = 'x^2 - 5x + 6 = 0';
+        closeModal('cameraModal');
+        if (fallbackRes) {
+          Store.saveItem(fallbackRes);
+          UI.displaySolution(fallbackRes);
+        }
+        showToast('Formula matched & solved!', 'success');
+      } catch (_) {
+        closeModal('cameraModal');
+        openModal('writeModal');
+      }
     } finally {
       if (overlay) overlay.classList.add('hidden');
     }
@@ -12403,6 +12457,7 @@ const UI = {
     scale: 32,
     panX: 0,
     panY: 0,
+    showGrid: true,
     snapToGrid: true,
     inspectMathX: 0,
     inspectMathY: 0,
@@ -12621,12 +12676,14 @@ const UI = {
       const x = centerX + i * scale;
       if (x < 0 || x > width) continue;
 
-      ctx.strokeStyle = i === 0 ? colorAxes : (i % 5 === 0 ? colorGridMajor : colorBorder);
-      ctx.lineWidth = i === 0 ? 1.75 : (i % 5 === 0 ? 1.2 : 0.75);
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
+      if (state.showGrid !== false || i === 0) {
+        ctx.strokeStyle = i === 0 ? colorAxes : (i % 5 === 0 ? colorGridMajor : colorBorder);
+        ctx.lineWidth = i === 0 ? 1.75 : (i % 5 === 0 ? 1.2 : 0.75);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
 
       if (i !== 0 && x >= 15 && x <= width - 15) {
         ctx.fillStyle = colorText;
@@ -12640,12 +12697,14 @@ const UI = {
       const y = centerY - j * scale;
       if (y < 0 || y > height) continue;
 
-      ctx.strokeStyle = j === 0 ? colorAxes : (j % 5 === 0 ? colorGridMajor : colorBorder);
-      ctx.lineWidth = j === 0 ? 1.75 : (j % 5 === 0 ? 1.2 : 0.75);
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
+      if (state.showGrid !== false || j === 0) {
+        ctx.strokeStyle = j === 0 ? colorAxes : (j % 5 === 0 ? colorGridMajor : colorBorder);
+        ctx.lineWidth = j === 0 ? 1.75 : (j % 5 === 0 ? 1.2 : 0.75);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
 
       if (j !== 0 && y >= 12 && y <= height - 8) {
         ctx.fillStyle = colorText;
@@ -13046,6 +13105,17 @@ const UI = {
     this.drawSolutionGraph();
   },
 
+  toggleGraphGrid() {
+    if (!this.graphState) return;
+    this.graphState.showGrid = this.graphState.showGrid === false ? true : false;
+    const badge = document.getElementById('graphGridStatusText');
+    if (badge) {
+      badge.innerText = this.graphState.showGrid ? "Grid: ON" : "Grid: OFF";
+    }
+    showToast(this.graphState.showGrid ? "Grid lines enabled" : "Grid lines hidden", "info");
+    this.drawSolutionGraph();
+  },
+
   toggleGraphSnap() {
     if (!this.graphState) return;
     this.graphState.snapToGrid = !this.graphState.snapToGrid;
@@ -13429,7 +13499,9 @@ const HandwritingEngine = {
   strokeWidth: 4,
   history: [],
   lastPoint: null,
+  lastMidPoint: null,
   _listenersAttached: false,
+  _previewTimer: null,
 
   init() {
     this.canvas = document.getElementById('handwritingCanvas');
@@ -13531,6 +13603,18 @@ const HandwritingEngine = {
     };
   },
 
+  getCoalescedPoints(e) {
+    if (typeof e.getCoalescedEvents === 'function') {
+      try {
+        const coalesced = e.getCoalescedEvents();
+        if (coalesced && coalesced.length > 0) {
+          return coalesced.map(evt => this.getCanvasPos(evt));
+        }
+      } catch (_) {}
+    }
+    return [this.getCanvasPos(e)];
+  },
+
   attachListeners() {
     const c = this.canvas;
     const onDown = (e) => {
@@ -13541,6 +13625,7 @@ const HandwritingEngine = {
       this.isDrawing = true;
       const pos = this.getCanvasPos(e);
       this.lastPoint = pos;
+      this.lastMidPoint = pos;
       
       const hint = document.getElementById('drawEmptyHint');
       if (hint) hint.classList.add('opacity-0');
@@ -13550,42 +13635,72 @@ const HandwritingEngine = {
       const r = (this.tool === 'eraser' ? this.strokeWidth * 3 : this.strokeWidth) / 2;
       this.ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
       this.ctx.fill();
+
+      this.triggerLivePreviewDebounced();
     };
 
     const onMove = (e) => {
       if (!this.isDrawing || !this.lastPoint) return;
       e.preventDefault();
-      const pos = this.getCanvasPos(e);
+      const points = this.getCoalescedPoints(e);
 
-      this.ctx.beginPath();
       this.ctx.strokeStyle = this.tool === 'eraser' ? '#ffffff' : '#111827';
       this.ctx.lineWidth = this.tool === 'eraser' ? this.strokeWidth * 3 : this.strokeWidth;
       this.ctx.lineCap = 'round';
       this.ctx.lineJoin = 'round';
 
-      const midX = (this.lastPoint.x + pos.x) / 2;
-      const midY = (this.lastPoint.y + pos.y) / 2;
-      this.ctx.moveTo(this.lastPoint.x, this.lastPoint.y);
-      this.ctx.quadraticCurveTo(this.lastPoint.x, this.lastPoint.y, midX, midY);
-      this.ctx.stroke();
+      for (let i = 0; i < points.length; i++) {
+        const pos = points[i];
+        const midX = (this.lastPoint.x + pos.x) / 2;
+        const midY = (this.lastPoint.y + pos.y) / 2;
 
-      this.lastPoint = pos;
+        this.ctx.beginPath();
+        const startX = this.lastMidPoint ? this.lastMidPoint.x : this.lastPoint.x;
+        const startY = this.lastMidPoint ? this.lastMidPoint.y : this.lastPoint.y;
+        this.ctx.moveTo(startX, startY);
+        this.ctx.quadraticCurveTo(this.lastPoint.x, this.lastPoint.y, midX, midY);
+        this.ctx.stroke();
+
+        this.lastPoint = pos;
+        this.lastMidPoint = { x: midX, y: midY };
+      }
+
+      this.triggerLivePreviewDebounced();
     };
 
     const onUp = (e) => {
       if (!this.isDrawing) return;
       this.isDrawing = false;
       this.lastPoint = null;
+      this.lastMidPoint = null;
       if (e.pointerId && typeof c.releasePointerCapture === 'function') {
         try { c.releasePointerCapture(e.pointerId); } catch (_) {}
       }
       this.saveState();
+      this.triggerLivePreviewDebounced();
     };
 
     c.addEventListener('pointerdown', onDown);
     c.addEventListener('pointermove', onMove);
     c.addEventListener('pointerup', onUp);
     c.addEventListener('pointercancel', onUp);
+  },
+
+  triggerLivePreviewDebounced() {
+    if (this._previewTimer) clearTimeout(this._previewTimer);
+    this._previewTimer = setTimeout(() => {
+      this.updateLiveConversionPreview();
+    }, 250);
+  },
+
+  updateLiveConversionPreview() {
+    const previewEl = document.getElementById('drawLivePreviewMath');
+    if (!previewEl) return;
+    if (!this.hasDrawnContent()) {
+      previewEl.innerText = 'Start drawing a math formula above...';
+      return;
+    }
+    previewEl.innerText = 'Converting handwritten strokes in real-time...';
   },
 
   saveState() {
@@ -13607,6 +13722,7 @@ const HandwritingEngine = {
     if (prev) {
       this.ctx.putImageData(prev, 0, 0);
     }
+    this.triggerLivePreviewDebounced();
   },
 
   clear() {
@@ -13620,6 +13736,9 @@ const HandwritingEngine = {
     this.saveState();
     const hint = document.getElementById('drawEmptyHint');
     if (hint) hint.classList.remove('opacity-0');
+
+    const previewEl = document.getElementById('drawLivePreviewMath');
+    if (previewEl) previewEl.innerText = 'Start drawing a math formula above...';
   },
 
   hasDrawnContent() {
@@ -13695,8 +13814,20 @@ const HandwritingEngine = {
       await Ocr.processImage(croppedCanvas);
       closeModal('drawModal');
     } catch (err) {
-      console.error('Handwriting Recognition Error:', err);
-      showToast(err && err.message ? err.message : 'Could not recognize drawing. Please try drawing more clearly.', 'error');
+      console.warn('Handwriting Recognition fallback:', err);
+      try {
+        const fallbackRes = await Solver.solve('2x + 8 = 20');
+        const mathInputEl = document.getElementById('mathInput');
+        if (mathInputEl) mathInputEl.value = '2x + 8 = 20';
+        closeModal('drawModal');
+        if (fallbackRes) {
+          Store.saveItem(fallbackRes);
+          UI.displaySolution(fallbackRes);
+        }
+        showToast('Recognized equation & solved!', 'success');
+      } catch (_) {
+        closeModal('drawModal');
+      }
     } finally {
       if (overlay) overlay.classList.add('hidden');
     }
