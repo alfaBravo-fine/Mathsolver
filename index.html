@@ -1699,23 +1699,20 @@
 
         <!-- Live Conversion Preview Bar -->
         <div id="drawLiveConversionBar" class="w-full bg-sage-green/10 dark:bg-sage-green/20 border border-sage-green/30 rounded-2xl p-2.5 mb-2.5 flex items-center justify-between gap-2 shadow-xs transition-all">
-          <div class="flex items-center gap-2 overflow-hidden flex-1">
-            <span class="px-2.5 py-1 rounded-full bg-sage-green text-white text-[9px] font-extrabold uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-2xs">
-              <i class="fa-solid fa-wand-magic-sparkles text-[9px] animate-pulse"></i> Live Conversion
-            </span>
-            <div id="drawLivePreviewMath" class="text-xs sm:text-sm font-serif text-gray-900 dark:text-gray-100 font-bold truncate flex-1 min-h-[22px] flex items-center overflow-x-auto no-scrollbar py-0.5">
-              <span class="text-xs text-gray-400 font-sans italic">Start writing to see live math recognition...</span>
-            </div>
+          <div id="drawLivePreviewMath" class="text-xs sm:text-sm font-serif text-gray-900 dark:text-gray-100 font-bold truncate flex-1 min-h-[22px] flex items-center overflow-x-auto no-scrollbar py-0.5">
+            <span class="text-xs text-gray-400 font-sans italic">Start writing to see live math recognition...</span>
           </div>
         </div>
 
         <!-- Options Bar -->
         <div class="flex items-center justify-between gap-2 mb-2 px-1">
-          <!-- Stroke Width Options -->
-          <div class="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-            <button type="button" onclick="HandwritingEngine.setStrokeWidth(2)" id="drawWidthThin" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-gray-600 dark:text-gray-300 hover:text-sage-green transition cursor-pointer">Thin</button>
-            <button type="button" onclick="HandwritingEngine.setStrokeWidth(4)" id="drawWidthMed" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-gray-700 text-sage-green shadow-xs transition cursor-pointer">Medium</button>
-            <button type="button" onclick="HandwritingEngine.setStrokeWidth(7)" id="drawWidthThick" class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-gray-600 dark:text-gray-300 hover:text-sage-green transition cursor-pointer">Thick</button>
+          <!-- Smooth Draggable Brush & Eraser Size Slider -->
+          <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-xl border border-gray-200/80 dark:border-gray-700/80 flex-1 max-w-[210px]">
+            <span id="drawSizeLabel" class="text-[10px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+              <i id="drawSizeIcon" class="fa-solid fa-paintbrush text-[10px] text-sage-green"></i> <span id="drawSizeText">Brush:</span>
+            </span>
+            <input type="range" id="drawSizeSlider" min="1" max="20" value="4" step="1" oninput="HandwritingEngine.handleSliderChange(this.value)" class="w-full h-1.5 bg-gray-300 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-sage-green" />
+            <span id="drawSizeValueDisplay" class="text-[11px] font-mono font-bold text-sage-green shrink-0 min-w-[26px] text-right">4px</span>
           </div>
 
           <!-- Tool Modes: Pen vs Eraser -->
@@ -13733,6 +13730,8 @@ const HandwritingEngine = {
   ctx: null,
   isDrawing: false,
   tool: 'pen',
+  penSize: 4,
+  eraserSize: 15,
   strokeWidth: 4,
   history: [],
   lastPoint: null,
@@ -13747,12 +13746,12 @@ const HandwritingEngine = {
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
     
-    this.resizeCanvas();
+    this.resizeCanvas(true);
 
     if (!this._resizeObserver && window.ResizeObserver && this.canvas.parentElement) {
       try {
         this._resizeObserver = new ResizeObserver(() => {
-          this.resizeCanvas();
+          this.resizeCanvas(false);
         });
         this._resizeObserver.observe(this.canvas.parentElement);
       } catch (_) {}
@@ -13763,14 +13762,14 @@ const HandwritingEngine = {
       this._listenersAttached = true;
     }
     this.updateToolUI();
-    this.updateWidthUI();
+    this.updateSliderUI();
   },
 
   teardown() {
     this.isDrawing = false;
   },
 
-  resizeCanvas() {
+  resizeCanvas(forceReset = false) {
     if (!this.canvas) return;
     const parent = this.canvas.parentElement;
     if (!parent) return;
@@ -13782,15 +13781,22 @@ const HandwritingEngine = {
 
     if (displayW <= 0 || displayH <= 0) return;
 
-    let existingData = null;
-    if (this.canvas.width > 0 && this.canvas.height > 0) {
+    const targetW = Math.floor(displayW * dpr);
+    const targetH = Math.floor(displayH * dpr);
+
+    let tempCanvas = null;
+    if (!forceReset && this.canvas.width > 0 && this.canvas.height > 0 && this.hasDrawnContent()) {
       try {
-        existingData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+        tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvas.width;
+        tempCanvas.height = this.canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (tempCtx) tempCtx.drawImage(this.canvas, 0, 0);
       } catch (_) {}
     }
 
-    this.canvas.width = Math.floor(displayW * dpr);
-    this.canvas.height = Math.floor(displayH * dpr);
+    this.canvas.width = targetW;
+    this.canvas.height = targetH;
     this.canvas.style.width = displayW + 'px';
     this.canvas.style.height = displayH + 'px';
 
@@ -13801,23 +13807,33 @@ const HandwritingEngine = {
     this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, displayW, displayH);
 
-    if (existingData && existingData.width > 0) {
+    if (tempCanvas && !forceReset) {
       try {
-        this.ctx.putImageData(existingData, 0, 0);
+        this.ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width / dpr, tempCanvas.height / dpr);
       } catch (_) {}
-    } else {
+    } else if (forceReset || this.history.length === 0) {
+      this.history = [];
       this.saveState();
     }
   },
 
   setTool(tool) {
     this.tool = tool;
+    this.strokeWidth = tool === 'eraser' ? this.eraserSize : this.penSize;
     this.updateToolUI();
+    this.updateSliderUI();
   },
 
-  setStrokeWidth(w) {
-    this.strokeWidth = w;
-    this.updateWidthUI();
+  handleSliderChange(val) {
+    const num = parseInt(val, 10) || 4;
+    if (this.tool === 'eraser') {
+      this.eraserSize = num;
+      this.strokeWidth = num;
+    } else {
+      this.penSize = num;
+      this.strokeWidth = num;
+    }
+    this.updateSliderUI();
   },
 
   updateToolUI() {
@@ -13834,19 +13850,24 @@ const HandwritingEngine = {
     }
   },
 
-  updateWidthUI() {
-    const thin = document.getElementById('drawWidthThin');
-    const med = document.getElementById('drawWidthMed');
-    const thick = document.getElementById('drawWidthThick');
-    [thin, med, thick].forEach(b => {
-      if (b) b.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg text-gray-600 dark:text-gray-300 hover:text-sage-green transition cursor-pointer";
-    });
-    if (this.strokeWidth <= 2 && thin) {
-      thin.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-gray-700 text-sage-green shadow-xs transition cursor-pointer";
-    } else if (this.strokeWidth <= 5 && med) {
-      med.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-gray-700 text-sage-green shadow-xs transition cursor-pointer";
-    } else if (thick) {
-      thick.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-gray-700 text-sage-green shadow-xs transition cursor-pointer";
+  updateSliderUI() {
+    const slider = document.getElementById('drawSizeSlider');
+    const display = document.getElementById('drawSizeValueDisplay');
+    const labelText = document.getElementById('drawSizeText');
+    const icon = document.getElementById('drawSizeIcon');
+
+    const curVal = this.tool === 'eraser' ? this.eraserSize : this.penSize;
+    const isEraser = this.tool === 'eraser';
+
+    if (slider) {
+      slider.min = isEraser ? "3" : "1";
+      slider.max = isEraser ? "40" : "20";
+      slider.value = curVal.toString();
+    }
+    if (display) display.textContent = `${curVal}px`;
+    if (labelText) labelText.textContent = isEraser ? 'Eraser:' : 'Brush:';
+    if (icon) {
+      icon.className = isEraser ? 'fa-solid fa-eraser text-[10px] text-sage-green' : 'fa-solid fa-paintbrush text-[10px] text-sage-green';
     }
   },
 
@@ -13950,14 +13971,13 @@ const HandwritingEngine = {
     }, 40);
   },
 
-  _previewTokenCache: '',
   async updateLiveConversionPreview() {
     const previewEl = document.getElementById('drawLivePreviewMath');
     if (!previewEl) return;
 
     if (!this.hasDrawnContent()) {
       this._previewTokenCache = '';
-      previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic flex items-center justify-center gap-1.5"><i class="fa-solid fa-pen-line text-[11px] opacity-60"></i> Standard Math Notation Preview</span>';
+      previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic flex items-center justify-center gap-1.5"><i class="fa-solid fa-pen-line text-[11px] opacity-60"></i> Draw equation above...</span>';
       return;
     }
 
@@ -13966,20 +13986,11 @@ const HandwritingEngine = {
       if (!croppedCanvas) return;
 
       let recognizedText = '';
-      const instantPattern = this.analyzeStrokeAspectPattern();
 
       if (window.MathScannerEngine && window.MathScannerEngine.ocr) {
         const res = await window.MathScannerEngine.ocr.recognize(croppedCanvas);
         if (res && res.cleanedMath && res.cleanedMath.trim().length > 0) {
           recognizedText = res.cleanedMath;
-        }
-      }
-
-      if (!recognizedText || recognizedText.trim().length === 0) {
-        if (typeof Ocr !== 'undefined' && Ocr.cleanMathText) {
-          recognizedText = Ocr.cleanMathText(instantPattern);
-        } else {
-          recognizedText = instantPattern;
         }
       }
 
@@ -13991,21 +14002,12 @@ const HandwritingEngine = {
       } else if (this._previewTokenCache) {
         previewEl.innerHTML = `<span class="font-mono text-sage-green text-sm font-extrabold tracking-wide px-1 truncate">$$${this._previewTokenCache}$$</span>`;
         typeset(previewEl);
+      } else {
+        previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic">Interpreting strokes...</span>';
       }
     } catch (err) {
       console.warn('Real-time handwriting recognition error:', err);
     }
-  },
-
-  analyzeStrokeAspectPattern() {
-    if (!this.ctx || !this.canvas) return '2x + 5 = 15';
-    const parent = this.canvas.parentElement;
-    const w = parent ? parent.clientWidth : 340;
-    const h = parent ? parent.clientHeight : 255;
-    const aspect = w / h;
-    if (aspect > 2.5) return '2x + 8 = 20';
-    if (aspect > 1.8) return 'x^2 - 4x + 4 = 0';
-    return '3x + 5 = 20';
   },
 
   saveState() {
