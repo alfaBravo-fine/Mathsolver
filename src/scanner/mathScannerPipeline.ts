@@ -114,18 +114,15 @@ export async function runOfflineMathScannerPipeline(
     if (cleanedRaw && isReasonableMath(cleanedRaw)) {
       targetExpression = cleanedRaw;
       isCoherent = true;
-    } else {
-      targetExpression = '2x + 5 = 15';
+    } else if (targetExpression && targetExpression.trim().length > 0) {
       isCoherent = true;
+    } else {
+      targetExpression = ocr.cleanedMath || ocr.rawText.trim();
     }
   }
 
   const classification: ClassifiedProblem = classifyMathProblem(targetExpression);
   let solution: SolveResult = await Solver.solve(targetExpression);
-
-  if (!solution || solution.error) {
-    solution = await Solver.solve('x^2 - 4x + 4 = 0');
-  }
 
   if (solution) {
     solution.questionType = solution.questionType || classification.code;

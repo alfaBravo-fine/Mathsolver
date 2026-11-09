@@ -7,6 +7,7 @@ export type QuestionCategoryCode =
   | 'CALCULUS_DERIVATIVE'
   | 'CALCULUS_INTEGRAL'
   | 'TRIGONOMETRY'
+  | 'PYTHAGOREAN_THEOREM'
   | 'ALGEBRAIC_EXPRESSION'
   | 'ARITHMETIC';
 
@@ -330,7 +331,50 @@ export function classifyMathProblem(rawInput: string): ClassifiedProblem {
     }
   }
 
-  // 5. TRIGONOMETRY PATTERN MATCHING
+  // 5. PYTHAGOREAN THEOREM PATTERN MATCHING (a^2 + b^2 = c^2, 3^2 + 4^2 = c^2, sqrt(3^2 + 4^2), etc.)
+  const pythEq1 = clean.match(/^([0-9a-zA-Z.]+)\^2\s*\+\s*([0-9a-zA-Z.]+)\^2\s*=\s*([0-9a-zA-Z.]+)\^2$/i);
+  const pythEq2 = clean.match(/^([0-9a-zA-Z.]+)\^2\s*=\s*([0-9a-zA-Z.]+)\^2\s*\+\s*([0-9a-zA-Z.]+)\^2$/i);
+  const pythSqrt = clean.match(/^sqrt\(\s*([0-9a-zA-Z.]+)\^2\s*\+\s*([0-9a-zA-Z.]+)\^2\s*\)$/i);
+  const isPythKeyword = /pythagor/i.test(rawInput) || /hypotenuse/i.test(rawInput);
+
+  if (pythEq1 || pythEq2 || pythSqrt || (isPythKeyword && /\^2/.test(clean))) {
+    let aVal = '3', bVal = '4', cVal = 'c';
+    if (pythEq1) {
+      aVal = pythEq1[1]; bVal = pythEq1[2]; cVal = pythEq1[3];
+    } else if (pythEq2) {
+      cVal = pythEq2[1]; aVal = pythEq2[2]; bVal = pythEq2[3];
+    } else if (pythSqrt) {
+      aVal = pythSqrt[1]; bVal = pythSqrt[2]; cVal = 'c';
+    }
+
+    return {
+      code: 'PYTHAGOREAN_THEOREM',
+      categoryLabel: 'Geometry · Pythagorean Theorem (a² + b² = c²)',
+      formulaTitle: 'Pythagorean Theorem: Right Triangle Relationship',
+      formulaLatex: 'a^2 + b^2 = c^2 \\iff c = \\sqrt{a^2 + b^2}',
+      normalizedExpr: clean,
+      extractedSummary: `Leg a = ${aVal}, Leg b = ${bVal}, Hypotenuse c = ${cVal}`,
+      extractedLatex: `a = ${aVal}, \\quad b = ${bVal}, \\quad c = ${cVal}`,
+      params: { a: aVal, b: bVal, c: cVal }
+    };
+  }
+
+  // 6. TRIGONOMETRIC PYTHAGOREAN IDENTITY MATCHING (sin^2(x) + cos^2(x) = 1)
+  const trigIdRegex = /(?:sin(?:\^2|\^2\s*\(|\s*\([^)]+\)\^2)|cos(?:\^2|\^2\s*\(|\s*\([^)]+\)\^2))/i;
+  if (trigIdRegex.test(clean) && /sin/i.test(clean) && /cos/i.test(clean) && /\+/.test(clean)) {
+    return {
+      code: 'TRIGONOMETRY',
+      categoryLabel: 'Trigonometry · Pythagorean Identity',
+      formulaTitle: 'Pythagorean Trigonometric Identity: sin²(θ) + cos²(θ) = 1',
+      formulaLatex: '\\sin^2(\\theta) + \\cos^2(\\theta) = 1',
+      normalizedExpr: clean,
+      extractedSummary: `Identity expression: ${clean}`,
+      extractedLatex: `\\sin^2(\\theta) + \\cos^2(\\theta) = 1`,
+      params: { isIdentity: true }
+    };
+  }
+
+  // 7. TRIGONOMETRY FUNCTION PATTERN MATCHING
   const trigRegex = /\b(arcsin|arccos|arctan|asin|acos|atan|sin|cos|tan|cot|sec|csc)\s*\(\s*([^)]+)\s*\)/i;
   const trigMatch = clean.match(trigRegex);
   if (trigMatch) {

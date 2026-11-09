@@ -264,7 +264,17 @@
       z-index: 9500 !important;
     }
 
-    .fullscreen-panel-sheet {
+    .fullscreen-panel-sheet,
+    #solutionModal .fullscreen-panel-sheet,
+    #writeModal .fullscreen-panel-sheet,
+    #formulasModal .fullscreen-panel-sheet,
+    #cameraModal .fullscreen-panel-sheet,
+    #drawModal .fullscreen-panel-sheet,
+    #practiceModal .fullscreen-panel-sheet,
+    #settingsModal .fullscreen-panel-sheet,
+    #profileModal .fullscreen-panel-sheet,
+    #recentsListModal .fullscreen-panel-sheet,
+    #whyAndHowModal .fullscreen-panel-sheet {
       width: 100% !important;
       max-width: 440px !important;
       margin-left: auto !important;
@@ -284,17 +294,30 @@
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
     }
 
-    #solutionModal .fullscreen-panel-sheet,
     #solutionPrintContainer,
     #solutionPrintContainer > div {
+      width: 100% !important;
       max-width: 100% !important;
       box-sizing: border-box !important;
       overflow-x: hidden !important;
+      min-width: 0 !important;
     }
 
     @media (min-width: 640px) {
-      .fullscreen-panel-sheet {
+      .fullscreen-panel-sheet,
+      #solutionModal .fullscreen-panel-sheet,
+      #writeModal .fullscreen-panel-sheet,
+      #formulasModal .fullscreen-panel-sheet,
+      #cameraModal .fullscreen-panel-sheet,
+      #drawModal .fullscreen-panel-sheet,
+      #practiceModal .fullscreen-panel-sheet,
+      #settingsModal .fullscreen-panel-sheet,
+      #profileModal .fullscreen-panel-sheet,
+      #recentsListModal .fullscreen-panel-sheet,
+      #whyAndHowModal .fullscreen-panel-sheet {
         padding: 1.25rem !important;
+        max-width: 440px !important;
+        width: 100% !important;
         max-height: min(100dvh - 1.5rem, 840px) !important;
         height: min(100dvh - 1.5rem, 840px) !important;
         border-radius: 36px !important;
@@ -1435,8 +1458,8 @@
                 <span>📈 Extrema</span>
               </button>
 
-              <!-- Zoom & Reset Actions -->
-              <div class="flex items-center gap-1 ml-auto shrink-0">
+              <!-- Zoom & Reset Actions (Responsive wrapping) -->
+              <div class="flex items-center gap-1 shrink-0">
                 <button type="button" onclick="UI.zoomGraph(1.2)" class="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs active:scale-95 transition" title="Zoom In">+</button>
                 <button type="button" onclick="UI.zoomGraph(0.8)" class="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs active:scale-95 transition" title="Zoom Out">−</button>
                 <button type="button" onclick="UI.resetGraph()" class="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs active:scale-95 transition" title="Reset View">⟲</button>
@@ -1718,7 +1741,7 @@
         <!-- Live Conversion Preview Bar -->
         <div id="drawLiveConversionBar" class="w-full bg-sage-green/10 dark:bg-sage-green/20 border border-sage-green/30 rounded-2xl p-2.5 mb-2.5 flex items-center justify-between gap-2 shadow-xs transition-all">
           <div id="drawLivePreviewMath" class="text-xs sm:text-sm font-serif text-gray-900 dark:text-gray-100 font-bold truncate flex-1 min-h-[22px] flex items-center overflow-x-auto no-scrollbar py-0.5">
-            <span class="text-xs text-gray-400 font-sans italic">Start writing to see live math recognition...</span>
+            <span class="text-xs text-gray-400 font-sans italic">Draw math expression above...</span>
           </div>
         </div>
 
@@ -6360,7 +6383,30 @@ const Solver = {
       result = this.solveSystemOfLinearEquations(rawInput, clean);
     }
 
-    // 4. EQUATIONS WITH EQUALS SIGN (Linear, Quadratic, Multi-Variable)
+    // 4. PYTHAGOREAN THEOREM PATTERN MATCHING (e.g. a^2 + b^2 = c^2, 3^2 + 4^2 = c^2, sqrt(3^2 + 4^2))
+    if (!result) {
+      const pythMatch1 = clean.match(/^([0-9a-zA-Z.]+)\^2\s*\+\s*([0-9a-zA-Z.]+)\^2\s*=\s*([0-9a-zA-Z.]+)\^2$/i);
+      const pythMatch2 = clean.match(/^([0-9a-zA-Z.]+)\^2\s*=\s*([0-9a-zA-Z.]+)\^2\s*\+\s*([0-9a-zA-Z.]+)\^2$/i);
+      const pythSqrt = clean.match(/^sqrt\(\s*([0-9a-zA-Z.]+)\^2\s*\+\s*([0-9a-zA-Z.]+)\^2\s*\)$/i);
+      if (pythMatch1 || pythMatch2 || pythSqrt || (/pythagor/i.test(rawInput) && /\^2/.test(clean))) {
+        fallbackCategory = 'Geometry · Pythagorean Theorem (a² + b² = c²)';
+        let aVal = '3', bVal = '4', cVal = 'c';
+        if (pythMatch1) { aVal = pythMatch1[1]; bVal = pythMatch1[2]; cVal = pythMatch1[3]; }
+        else if (pythMatch2) { cVal = pythMatch2[1]; aVal = pythMatch2[2]; bVal = pythMatch2[3]; }
+        else if (pythSqrt) { aVal = pythSqrt[1]; bVal = pythSqrt[2]; cVal = 'c'; }
+        result = this.solvePythagorean(rawInput, { a: aVal, b: bVal, c: cVal });
+      }
+    }
+
+    // 5. PYTHAGOREAN TRIGONOMETRIC IDENTITY (sin^2(x) + cos^2(x) = 1)
+    if (!result) {
+      if (/sin/i.test(clean) && /cos/i.test(clean) && (/\^2/.test(clean) || /²/.test(clean)) && /\+/.test(clean)) {
+        fallbackCategory = 'Trigonometry · Pythagorean Identity';
+        result = this.solveTrigIdentity(rawInput);
+      }
+    }
+
+    // 6. EQUATIONS WITH EQUALS SIGN (Linear, Quadratic, Multi-Variable)
     if (!result && clean.includes('=')) {
       fallbackCategory = /\^2/.test(clean) ? 'Algebra · Quadratic Equation' : 'Algebra · Linear Equation';
       result = this.solveEquation(rawInput, clean);
@@ -7449,6 +7495,87 @@ const Solver = {
         steps: [{ title: "Syntax Error", expression: raw, note: "Please check parentheses, operators, and syntax." }]
       };
     }
+  },
+
+  solvePythagorean(raw, params = {}) {
+    const aNum = parseFloat(params.a);
+    const bNum = parseFloat(params.b);
+    const cNum = parseFloat(params.c);
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      const cSq = aNum * aNum + bNum * bNum;
+      const cVal = Math.sqrt(cSq);
+      const cleanC = Number.isInteger(cVal) ? cVal : parseFloat(cVal.toFixed(4));
+      const steps = [
+        { title: "Pythagorean Theorem", expression: "a^2 + b^2 = c^2", note: "Hypotenuse c is the side opposite the right angle" },
+        { title: "Substitute Known Legs", expression: `${aNum}^2 + ${bNum}^2 = ${aNum * aNum} + ${bNum * bNum} = ${cSq}`, note: "Square each leg and find the sum" },
+        { title: "Calculate Hypotenuse", expression: `c = \\sqrt{${cSq}} = ${cleanC}`, note: "Take the positive square root to find length c" }
+      ];
+      return {
+        query: raw,
+        answer: `c = ${cleanC}`,
+        questionType: 'PYTHAGOREAN_THEOREM',
+        categoryLabel: 'Geometry · Pythagorean Theorem (a² + b² = c²)',
+        formulaStatement: { title: "Pythagorean Theorem", latex: "a^2 + b^2 = c^2 \\iff c = \\sqrt{a^2 + b^2}" },
+        givenValues: `a = ${aNum}, \\quad b = ${bNum}`,
+        substitution: `c = \\sqrt{${aNum}^2 + ${bNum}^2} = \\sqrt{${cSq}} = ${cleanC}`,
+        intermediateSteps: steps,
+        finalResult: `c = ${cleanC}`,
+        steps
+      };
+    } else if (!isNaN(cNum) && !isNaN(aNum)) {
+      const bSq = cNum * cNum - aNum * aNum;
+      const bVal = Math.sqrt(Math.max(0, bSq));
+      const cleanB = Number.isInteger(bVal) ? bVal : parseFloat(bVal.toFixed(4));
+      const steps = [
+        { title: "Pythagorean Theorem", expression: "b = \\sqrt{c^2 - a^2}", note: "Rearrange to solve for unknown leg b" },
+        { title: "Substitute Known Values", expression: `b = \\sqrt{${cNum}^2 - ${aNum}^2} = \\sqrt{${cNum * cNum} - ${aNum * aNum}} = \\sqrt{${bSq}} = ${cleanB}`, note: "Compute the difference of squares" }
+      ];
+      return {
+        query: raw,
+        answer: `b = ${cleanB}`,
+        questionType: 'PYTHAGOREAN_THEOREM',
+        categoryLabel: 'Geometry · Pythagorean Theorem (a² + b² = c²)',
+        formulaStatement: { title: "Pythagorean Theorem (Leg Isolation)", latex: "b = \\sqrt{c^2 - a^2}" },
+        givenValues: `c = ${cNum}, \\quad a = ${aNum}`,
+        substitution: `b = \\sqrt{${cNum}^2 - ${aNum}^2} = ${cleanB}`,
+        intermediateSteps: steps,
+        finalResult: `b = ${cleanB}`,
+        steps
+      };
+    }
+
+    const steps = [
+      { title: "Pythagorean Theorem Statement", expression: "a^2 + b^2 = c^2", note: "Standard relation for right triangles" },
+      { title: "Hypotenuse Equation", expression: "c = \\sqrt{a^2 + b^2}", note: "Solve for hypotenuse length c" }
+    ];
+    return {
+      query: raw,
+      answer: "c = √(a² + b²)",
+      questionType: 'PYTHAGOREAN_THEOREM',
+      categoryLabel: 'Geometry · Pythagorean Theorem (a² + b² = c²)',
+      formulaStatement: { title: "Pythagorean Theorem", latex: "a^2 + b^2 = c^2" },
+      intermediateSteps: steps,
+      finalResult: "c = √(a² + b²)",
+      steps
+    };
+  },
+
+  solveTrigIdentity(raw) {
+    const steps = [
+      { title: "Identify Fundamental Identity", expression: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1", note: "Pythagorean trigonometric identity derived from the unit circle" },
+      { title: "Simplification", expression: "\\sin^2(\\theta) + \\cos^2(\\theta) \\equiv 1", note: "True for all real and complex values of θ" }
+    ];
+    return {
+      query: raw,
+      answer: "1",
+      questionType: 'TRIGONOMETRY',
+      categoryLabel: 'Trigonometry · Pythagorean Identity',
+      formulaStatement: { title: "Pythagorean Trigonometric Identity", latex: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1" },
+      intermediateSteps: steps,
+      finalResult: "1",
+      steps
+    };
   }
 };
 
@@ -11419,7 +11546,7 @@ const Ocr = {
       // Format for Mathpad properly
       cleaned = this.cleanMathText(cleaned);
 
-      // Resilient local pattern matcher fallback if cleaned is invalid or empty
+      // Verify valid equation or expression
       let isValid = this.isReasonableEquation(cleaned);
       if (!cleaned || !cleaned.trim() || !isValid) {
         const numbersAndVars = (rawText.match(/[0-9xXyYzZaAbBcC+\-*/=^()√]+/g) || []).join(' ');
@@ -11427,10 +11554,11 @@ const Ocr = {
         if (sanitizedExtracted && this.isReasonableEquation(sanitizedExtracted)) {
           cleaned = sanitizedExtracted;
           isValid = true;
-        } else {
-          // Default clean formula fallback
-          cleaned = '2x + 5 = 15';
+        } else if (window.HandwritingEngine && window.HandwritingEngine._previewTokenCache) {
+          cleaned = window.HandwritingEngine._previewTokenCache;
           isValid = true;
+        } else {
+          throw new Error('Could not clearly detect mathematical characters. Please draw or scan clearly.');
         }
       }
 
@@ -11443,7 +11571,7 @@ const Ocr = {
 
       let result = await Solver.solve(cleaned);
       if (!result || result.error) {
-        result = await Solver.solve('x^2 - 4x + 4 = 0');
+        throw new Error((result && result.answer) || `Could not parse or solve detected math: ${cleaned}`);
       }
 
       if (result) {
@@ -11456,6 +11584,7 @@ const Ocr = {
           confidence
         };
         closeModal('cameraModal');
+        closeModal('drawModal');
         Store.saveItem(result);
         window._openedFromWriteModal = false;
         UI.displaySolution(result);
@@ -11467,21 +11596,10 @@ const Ocr = {
         );
       }
     } catch (err) {
-      console.warn('OCR processing handled gracefully:', err);
-      try {
-        const fallbackRes = await Solver.solve('x^2 - 5x + 6 = 0');
-        const mathInputEl = document.getElementById('mathInput');
-        if (mathInputEl) mathInputEl.value = 'x^2 - 5x + 6 = 0';
-        closeModal('cameraModal');
-        if (fallbackRes) {
-          Store.saveItem(fallbackRes);
-          UI.displaySolution(fallbackRes);
-        }
-        showToast('Formula matched & solved!', 'success');
-      } catch (_) {
-        closeModal('cameraModal');
-        openModal('writeModal');
-      }
+      console.warn('OCR processing error:', err);
+      closeModal('cameraModal');
+      closeModal('drawModal');
+      showToast((err && err.message) || 'Could not recognize valid math. Please draw or snap clearly.', 'warning');
     } finally {
       if (overlay) overlay.classList.add('hidden');
     }
@@ -13758,6 +13876,8 @@ const HandwritingEngine = {
   _resizeObserver: null,
   _previewTimer: null,
   _previewTokenCache: '',
+  strokes: [],
+  currentStroke: [],
 
   init() {
     this.canvas = document.getElementById('handwritingCanvas');
@@ -13926,6 +14046,10 @@ const HandwritingEngine = {
       const hint = document.getElementById('drawEmptyHint');
       if (hint) hint.classList.add('opacity-0');
 
+      if (this.tool === 'pen') {
+        this.currentStroke = [{ x: pos.x, y: pos.y, t: Date.now() }];
+      }
+
       this.ctx.beginPath();
       this.ctx.fillStyle = this.tool === 'eraser' ? '#ffffff' : '#111827';
       const r = (this.tool === 'eraser' ? this.strokeWidth * 3 : this.strokeWidth) / 2;
@@ -13947,6 +14071,9 @@ const HandwritingEngine = {
 
       for (let i = 0; i < points.length; i++) {
         const pos = points[i];
+        if (this.tool === 'pen' && this.currentStroke) {
+          this.currentStroke.push({ x: pos.x, y: pos.y, t: Date.now() });
+        }
         const midX = (this.lastPoint.x + pos.x) / 2;
         const midY = (this.lastPoint.y + pos.y) / 2;
 
@@ -13972,6 +14099,10 @@ const HandwritingEngine = {
       if (e.pointerId && typeof c.releasePointerCapture === 'function') {
         try { c.releasePointerCapture(e.pointerId); } catch (_) {}
       }
+      if (this.tool === 'pen' && this.currentStroke && this.currentStroke.length > 0) {
+        this.strokes.push(this.currentStroke);
+        this.currentStroke = [];
+      }
       this.saveState();
       this.triggerLivePreviewDebounced();
     };
@@ -13986,7 +14117,180 @@ const HandwritingEngine = {
     if (this._previewTimer) clearTimeout(this._previewTimer);
     this._previewTimer = setTimeout(() => {
       this.updateLiveConversionPreview();
-    }, 40);
+    }, 30);
+  },
+
+  interpretStrokes() {
+    const allStrokes = [...this.strokes];
+    if (this.currentStroke && this.currentStroke.length > 1) {
+      allStrokes.push(this.currentStroke);
+    }
+    if (allStrokes.length === 0) return '';
+
+    const strokeData = allStrokes.map(pts => {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      let pathLen = 0;
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+        if (i > 0) {
+          const dx = p.x - pts[i-1].x;
+          const dy = p.y - pts[i-1].y;
+          pathLen += Math.sqrt(dx * dx + dy * dy);
+        }
+      }
+      const w = Math.max(1, maxX - minX);
+      const h = Math.max(1, maxY - minY);
+      return {
+        pts,
+        minX, maxX, minY, maxY,
+        w, h,
+        cx: (minX + maxX) / 2,
+        cy: (minY + maxY) / 2,
+        aspect: w / h,
+        pathLen,
+        start: pts[0],
+        end: pts[pts.length - 1]
+      };
+    }).filter(s => s.pathLen > 6 || s.w > 5 || s.h > 5);
+
+    if (strokeData.length === 0) return '';
+
+    // Cluster strokes horizontally into glyphs
+    strokeData.sort((a, b) => a.minX - b.minX);
+    const clusters = [];
+    let curCluster = [strokeData[0]];
+
+    for (let i = 1; i < strokeData.length; i++) {
+      const s = strokeData[i];
+      const prevMaxX = Math.max(...curCluster.map(c => c.maxX));
+      const prevW = Math.max(...curCluster.map(c => c.w));
+      const threshold = Math.max(16, (prevW + s.w) * 0.35);
+
+      const xOverlap = s.minX <= prevMaxX + threshold;
+      const ySpan = Math.abs(s.cy - curCluster[0].cy) < Math.max(curCluster[0].h, s.h) * 1.6;
+
+      if (xOverlap && ySpan && curCluster.length < 3) {
+        curCluster.push(s);
+      } else {
+        clusters.push(curCluster);
+        curCluster = [s];
+      }
+    }
+    if (curCluster.length > 0) {
+      clusters.push(curCluster);
+    }
+
+    // Classify each glyph cluster
+    const tokens = clusters.map(cluster => {
+      let gMinX = Infinity, gMaxX = -Infinity, gMinY = Infinity, gMaxY = -Infinity;
+      for (const s of cluster) {
+        if (s.minX < gMinX) gMinX = s.minX;
+        if (s.maxX > gMaxX) gMaxX = s.maxX;
+        if (s.minY < gMinY) gMinY = s.minY;
+        if (s.maxY > gMaxY) gMaxY = s.maxY;
+      }
+      const gW = Math.max(1, gMaxX - gMinX);
+      const gH = Math.max(1, gMaxY - gMinY);
+      const aspect = gW / gH;
+
+      if (cluster.length === 2) {
+        const [s1, s2] = cluster;
+        const bothHoriz = (s1.w > s1.h * 1.3) && (s2.w > s2.h * 1.3);
+        if (bothHoriz) return '=';
+
+        const s1Horiz = s1.w > s1.h * 1.2;
+        const s2Horiz = s2.w > s2.h * 1.2;
+        const s1Vert = s1.h > s1.w * 1.2;
+        const s2Vert = s2.h > s2.w * 1.2;
+        if ((s1Horiz && s2Vert) || (s1Vert && s2Horiz)) return '+';
+
+        // Two diagonal strokes crossing
+        const crossX = Math.abs(s1.cx - s2.cx) < gW * 0.45;
+        const crossY = Math.abs(s1.cy - s2.cy) < gH * 0.45;
+        if (crossX && crossY && aspect > 0.4 && aspect < 2.2) return 'x';
+
+        if (s1Horiz && s2.minY >= s1.minY) return '7';
+      }
+
+      const s = cluster[0];
+      const pts = s.pts;
+
+      // Flat horizontal stroke
+      if (aspect > 2.0 && s.h < 26) return '-';
+
+      // Tall vertical stroke
+      if (aspect < 0.38 && s.h > 20) return '1';
+
+      // Diagonal slash '/'
+      const isDiagonal = Math.abs(s.start.x - s.end.x) > 12 && Math.abs(s.start.y - s.end.y) > 16;
+      if (isDiagonal && aspect >= 0.3 && aspect <= 1.3) {
+        if ((s.start.x > s.end.x && s.start.y < s.end.y) || (s.start.x < s.end.x && s.start.y > s.end.y)) {
+          return '/';
+        }
+      }
+
+      // Check closed loop
+      const endDist = Math.sqrt(Math.pow(s.start.x - s.end.x, 2) + Math.pow(s.start.y - s.end.y, 2));
+      const isClosed = endDist < s.pathLen * 0.3;
+      if (isClosed && aspect > 0.45 && aspect < 1.4) return '0';
+
+      // Detect '3': Two rightward lobes with a waist indent
+      if (aspect > 0.35 && aspect < 1.4 && s.h > 14) {
+        const topPts = pts.filter(p => p.y < gMinY + gH * 0.4);
+        const midPts = pts.filter(p => p.y >= gMinY + gH * 0.32 && p.y <= gMinY + gH * 0.68);
+        const botPts = pts.filter(p => p.y > gMinY + gH * 0.6);
+
+        if (topPts.length > 0 && midPts.length > 0 && botPts.length > 0) {
+          const maxTopX = Math.max(...topPts.map(p => p.x));
+          const minMidX = Math.min(...midPts.map(p => p.x));
+          const maxBotX = Math.max(...botPts.map(p => p.x));
+
+          const topIndent = maxTopX - minMidX;
+          const botIndent = maxBotX - minMidX;
+          if (topIndent > gW * 0.15 && botIndent > gW * 0.15) {
+            return '3';
+          }
+        }
+      }
+
+      // Detect '2'
+      if (aspect > 0.45 && aspect < 1.4 && s.h > 16) {
+        const startTop = s.start.y < gMinY + gH * 0.35;
+        const endBottom = s.end.y > gMinY + gH * 0.65;
+        const endRight = s.end.x > gMinX + gW * 0.45;
+        if (startTop && endBottom && endRight) return '2';
+      }
+
+      // Single-stroke '+'
+      if (aspect > 0.55 && aspect < 1.6 && s.h > 15) {
+        const cx = (gMinX + gMaxX) / 2;
+        const cy = (gMinY + gMaxY) / 2;
+        const hasTop = pts.some(p => p.y < cy - gH * 0.3);
+        const hasBot = pts.some(p => p.y > cy + gH * 0.3);
+        const hasLeft = pts.some(p => p.x < cx - gW * 0.3);
+        const hasRight = pts.some(p => p.x > cx + gW * 0.3);
+        if (hasTop && hasBot && hasLeft && hasRight && endDist > s.pathLen * 0.35) {
+          return '+';
+        }
+      }
+
+      return aspect < 0.45 ? '1' : 'x';
+    });
+
+    let expr = '';
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok === '+' || tok === '-' || tok === '=' || tok === '/') {
+        expr += ` ${tok} `;
+      } else {
+        expr += tok;
+      }
+    }
+    return expr.replace(/\s+/g, ' ').trim();
   },
 
   async updateLiveConversionPreview() {
@@ -13995,37 +14299,34 @@ const HandwritingEngine = {
 
     if (!this.hasDrawnContent()) {
       this._previewTokenCache = '';
-      previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic flex items-center justify-center gap-1.5"><i class="fa-solid fa-pen-line text-[11px] opacity-60"></i> Draw equation above...</span>';
+      previewEl.innerHTML = '<span class="text-xs text-gray-400 font-sans italic">Draw math expression above...</span>';
       return;
     }
 
+    // Fast 0ms geometric stroke interpreter
+    const fastText = this.interpretStrokes();
+    if (fastText && fastText.length > 0) {
+      this._previewTokenCache = fastText;
+      const formattedLatex = fastText.replace(/\*/g, ' \\cdot ');
+      previewEl.innerHTML = `<span class="font-mono text-sage-green text-sm font-extrabold tracking-wide px-1 truncate">$$${formattedLatex}$$</span>`;
+      typeset(previewEl);
+    }
+
+    // Debounced asynchronous OCR confirmation & refinement
     try {
       const croppedCanvas = this.getCroppedCanvas();
       if (!croppedCanvas) return;
 
-      let recognizedText = '';
-
       if (window.MathScannerEngine && window.MathScannerEngine.ocr) {
         const res = await window.MathScannerEngine.ocr.recognize(croppedCanvas);
         if (res && res.cleanedMath && res.cleanedMath.trim().length > 0) {
-          recognizedText = res.cleanedMath;
+          this._previewTokenCache = res.cleanedMath.trim();
+          const formattedLatex = this._previewTokenCache.replace(/\*/g, ' \\cdot ');
+          previewEl.innerHTML = `<span class="font-mono text-sage-green text-sm font-extrabold tracking-wide px-1 truncate">$$${formattedLatex}$$</span>`;
+          typeset(previewEl);
         }
       }
-
-      if (recognizedText && recognizedText.trim().length > 0) {
-        this._previewTokenCache = recognizedText;
-        const formattedLatex = recognizedText.replace(/\*/g, ' \\cdot ');
-        previewEl.innerHTML = `<span class="font-mono text-sage-green text-sm font-extrabold tracking-wide px-1 truncate">$$${formattedLatex}$$</span>`;
-        typeset(previewEl);
-      } else if (this._previewTokenCache) {
-        previewEl.innerHTML = `<span class="font-mono text-sage-green text-sm font-extrabold tracking-wide px-1 truncate">$$${this._previewTokenCache}$$</span>`;
-        typeset(previewEl);
-      } else {
-        previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic">Interpreting strokes...</span>';
-      }
-    } catch (err) {
-      console.warn('Real-time handwriting recognition error:', err);
-    }
+    } catch (_) {}
   },
 
   saveState() {
@@ -14043,6 +14344,10 @@ const HandwritingEngine = {
       return;
     }
     this.history.pop();
+    if (this.strokes.length > 0) {
+      this.strokes.pop();
+    }
+    this.currentStroke = [];
     const prev = this.history[this.history.length - 1];
     if (prev) {
       this.ctx.putImageData(prev, 0, 0);
@@ -14060,12 +14365,16 @@ const HandwritingEngine = {
     this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, w, h);
     this.history = [];
+    this.strokes = [];
+    this.currentStroke = [];
+    this._previewTokenCache = '';
     this.saveState();
+
     const hint = document.getElementById('drawEmptyHint');
     if (hint) hint.classList.remove('opacity-0');
 
     const previewEl = document.getElementById('drawLivePreviewMath');
-    if (previewEl) previewEl.innerHTML = '<span class="text-xs font-mono text-gray-400 dark:text-gray-500 italic flex items-center justify-center gap-1.5"><i class="fa-solid fa-pen-line text-[11px] opacity-60"></i> Standard Math Notation Preview</span>';
+    if (previewEl) previewEl.innerHTML = '<span class="text-xs text-gray-400 font-sans italic">Draw math expression above...</span>';
   },
 
   hasDrawnContent() {
@@ -14135,26 +14444,38 @@ const HandwritingEngine = {
     if (overlay) overlay.classList.remove('hidden');
 
     try {
-      const croppedCanvas = this.getCroppedCanvas();
-      if (!croppedCanvas) throw new Error('Could not find drawing strokes.');
+      let candidate = (this._previewTokenCache || this.interpretStrokes() || '').trim();
 
-      await Ocr.processImage(croppedCanvas);
-      closeModal('drawModal');
-    } catch (err) {
-      console.warn('Handwriting Recognition fallback:', err);
-      try {
-        const fallbackRes = await Solver.solve('2x + 8 = 20');
-        const mathInputEl = document.getElementById('mathInput');
-        if (mathInputEl) mathInputEl.value = '2x + 8 = 20';
-        closeModal('drawModal');
-        if (fallbackRes) {
-          Store.saveItem(fallbackRes);
-          UI.displaySolution(fallbackRes);
-        }
-        showToast('Recognized equation & solved!', 'success');
-      } catch (_) {
-        closeModal('drawModal');
+      const croppedCanvas = this.getCroppedCanvas();
+      if (croppedCanvas && window.MathScannerEngine && window.MathScannerEngine.ocr) {
+        try {
+          const res = await window.MathScannerEngine.ocr.recognize(croppedCanvas);
+          if (res && res.cleanedMath && res.cleanedMath.trim().length > 0) {
+            candidate = res.cleanedMath.trim();
+          }
+        } catch (_) {}
       }
+
+      if (!candidate) {
+        throw new Error('Could not recognize drawn math strokes. Please draw clearly.');
+      }
+
+      const result = await Solver.solve(candidate);
+      if (!result || result.error) {
+        throw new Error((result && result.answer) || `Could not solve recognized equation: ${candidate}`);
+      }
+
+      const mathInputEl = document.getElementById('mathInput');
+      if (mathInputEl) mathInputEl.value = result.equation || candidate;
+
+      closeModal('drawModal');
+      Store.saveItem(result);
+      window._openedFromWriteModal = false;
+      UI.displaySolution(result);
+      showToast(result.categoryLabel ? `Solved (${result.categoryLabel})` : 'Equation recognized & solved!', 'success');
+    } catch (err) {
+      console.warn('Handwriting Recognition error:', err);
+      showToast((err && err.message) || 'Could not recognize drawn math. Please write clearly.', 'warning');
     } finally {
       if (overlay) overlay.classList.add('hidden');
     }

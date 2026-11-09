@@ -351,6 +351,13 @@ export class OfflineOcrEngine {
   /**
    * Run 100% offline OCR recognition on a preprocessed HTMLCanvasElement.
    */
+  async recognize(
+    canvas: HTMLCanvasElement,
+    onProgress?: (update: OcrProgressUpdate) => void
+  ): Promise<OcrRecognitionResult> {
+    return this.recognizeCanvas(canvas, onProgress);
+  }
+
   async recognizeCanvas(
     canvas: HTMLCanvasElement,
     onProgress?: (update: OcrProgressUpdate) => void

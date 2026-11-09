@@ -98,8 +98,13 @@ export const Solver = {
       case 'LINEAR_EQUATION':
         result = this.solveEquation(rawInput, clean);
         break;
+      case 'PYTHAGOREAN_THEOREM':
+        result = this.solvePythagorean(rawInput, classified.params);
+        break;
       case 'TRIGONOMETRY': {
-        if (classified.params.isExactSingleCall) {
+        if (classified.params?.isIdentity) {
+          result = this.solveTrigIdentity(rawInput);
+        } else if (classified.params.isExactSingleCall) {
           result = this.solveTrig(rawInput, classified.params.func, classified.params.arg);
         } else {
           result = this.solveArithmetic(rawInput, clean);
@@ -690,6 +695,87 @@ export const Solver = {
       substitution: `\\int (${integrand}) \\, d${v}`,
       intermediateSteps: steps,
       finalResult: ans,
+      steps
+    };
+  },
+
+  solvePythagorean(raw: string, params: Record<string, any> = {}): SolveResult {
+    const aNum = parseFloat(params.a);
+    const bNum = parseFloat(params.b);
+    const cNum = parseFloat(params.c);
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      const cSq = aNum * aNum + bNum * bNum;
+      const cVal = Math.sqrt(cSq);
+      const cleanC = Number.isInteger(cVal) ? cVal : parseFloat(cVal.toFixed(4));
+      const steps: StepItem[] = [
+        { title: "Pythagorean Theorem", expression: "a^2 + b^2 = c^2", note: "Hypotenuse c is the side opposite the right angle" },
+        { title: "Substitute Known Legs", expression: `${aNum}^2 + ${bNum}^2 = ${aNum * aNum} + ${bNum * bNum} = ${cSq}`, note: "Square each leg and find the sum" },
+        { title: "Calculate Hypotenuse", expression: `c = \\sqrt{${cSq}} = ${cleanC}`, note: "Take the positive square root to find length c" }
+      ];
+      return {
+        query: raw,
+        answer: `c = ${cleanC}`,
+        questionType: 'PYTHAGOREAN_THEOREM',
+        categoryLabel: 'Geometry · Pythagorean Theorem (a² + b² = c²)',
+        formulaStatement: { title: "Pythagorean Theorem", latex: "a^2 + b^2 = c^2 \\iff c = \\sqrt{a^2 + b^2}" },
+        givenValues: `a = ${aNum}, \\quad b = ${bNum}`,
+        substitution: `c = \\sqrt{${aNum}^2 + ${bNum}^2} = \\sqrt{${cSq}} = ${cleanC}`,
+        intermediateSteps: steps,
+        finalResult: `c = ${cleanC}`,
+        steps
+      };
+    } else if (!isNaN(cNum) && !isNaN(aNum)) {
+      const bSq = cNum * cNum - aNum * aNum;
+      const bVal = Math.sqrt(Math.max(0, bSq));
+      const cleanB = Number.isInteger(bVal) ? bVal : parseFloat(bVal.toFixed(4));
+      const steps: StepItem[] = [
+        { title: "Pythagorean Theorem", expression: "b = \\sqrt{c^2 - a^2}", note: "Rearrange to solve for unknown leg b" },
+        { title: "Substitute Known Values", expression: `b = \\sqrt{${cNum}^2 - ${aNum}^2} = \\sqrt{${cNum * cNum} - ${aNum * aNum}} = \\sqrt{${bSq}} = ${cleanB}`, note: "Compute the difference of squares" }
+      ];
+      return {
+        query: raw,
+        answer: `b = ${cleanB}`,
+        questionType: 'PYTHAGOREAN_THEOREM',
+        categoryLabel: 'Geometry · Pythagorean Theorem (a² + b² = c²)',
+        formulaStatement: { title: "Pythagorean Theorem (Leg Isolation)", latex: "b = \\sqrt{c^2 - a^2}" },
+        givenValues: `c = ${cNum}, \\quad a = ${aNum}`,
+        substitution: `b = \\sqrt{${cNum}^2 - ${aNum}^2} = ${cleanB}`,
+        intermediateSteps: steps,
+        finalResult: `b = ${cleanB}`,
+        steps
+      };
+    }
+
+    const steps: StepItem[] = [
+      { title: "Pythagorean Theorem Statement", expression: "a^2 + b^2 = c^2", note: "Standard relation for right triangles" },
+      { title: "Hypotenuse Equation", expression: "c = \\sqrt{a^2 + b^2}", note: "Solve for hypotenuse length c" }
+    ];
+    return {
+      query: raw,
+      answer: "c = √(a² + b²)",
+      questionType: 'PYTHAGOREAN_THEOREM',
+      categoryLabel: 'Geometry · Pythagorean Theorem (a² + b² = c²)',
+      formulaStatement: { title: "Pythagorean Theorem", latex: "a^2 + b^2 = c^2" },
+      intermediateSteps: steps,
+      finalResult: "c = √(a² + b²)",
+      steps
+    };
+  },
+
+  solveTrigIdentity(raw: string): SolveResult {
+    const steps: StepItem[] = [
+      { title: "Identify Fundamental Identity", expression: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1", note: "Pythagorean trigonometric identity derived from the unit circle" },
+      { title: "Simplification", expression: "\\sin^2(\\theta) + \\cos^2(\\theta) \\equiv 1", note: "True for all real and complex values of θ" }
+    ];
+    return {
+      query: raw,
+      answer: "1",
+      questionType: 'TRIGONOMETRY',
+      categoryLabel: 'Trigonometry · Pythagorean Identity',
+      formulaStatement: { title: "Pythagorean Trigonometric Identity", latex: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1" },
+      intermediateSteps: steps,
+      finalResult: "1",
       steps
     };
   },
