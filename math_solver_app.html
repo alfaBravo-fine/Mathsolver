@@ -275,12 +275,21 @@
       flex-direction: column !important;
       flex: 1 1 auto !important;
       overflow-y: auto !important;
+      overflow-x: hidden !important;
       background-color: var(--bg-primary) !important;
       color: var(--text-primary) !important;
       padding: 1rem !important;
       box-sizing: border-box !important;
       position: relative !important;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    #solutionModal .fullscreen-panel-sheet,
+    #solutionPrintContainer,
+    #solutionPrintContainer > div {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow-x: hidden !important;
     }
 
     @media (min-width: 640px) {
@@ -1290,15 +1299,15 @@
 
     <!-- 4. SOLUTION RESULT MODAL (UNIVERSAL 5-SECTION BREAKDOWN & PDF EXPORT) -->
     <div id="solutionModal" class="fullscreen-slide-panel z-higher hidden pt-[max(0.5rem,var(--safe-top))] pb-[max(0.5rem,var(--safe-bottom))] pl-[max(0.5rem,var(--safe-left))] pr-[max(0.5rem,var(--safe-right))]">
-      <div class="fullscreen-panel-sheet">
+      <div class="fullscreen-panel-sheet w-full max-w-[440px] box-border min-w-0 overflow-x-hidden px-3 sm:px-4 py-3 sm:py-4">
         
         <!-- Header -->
-        <div class="flex justify-between items-center mb-3">
-          <div class="flex items-center gap-2">
-            <span class="px-3 py-1 rounded-full bg-sage-green/10 text-sage-green text-xs font-bold">Solution</span>
-            <span class="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500">Step-by-Step</span>
+        <div class="flex justify-between items-center mb-3 w-full max-w-full box-border min-w-0">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="px-3 py-1 rounded-full bg-sage-green/10 text-sage-green text-xs font-bold shrink-0">Solution</span>
+            <span class="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 shrink-0">Step-by-Step</span>
           </div>
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 shrink-0">
             <!-- Favorite toggle button -->
             <button id="solutionFavBtn" onclick="UI.toggleFavoriteCurrent()" title="Add to Favorites" aria-label="Toggle Favorite" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 hover:text-amber-500 flex items-center justify-center transition cursor-pointer">
               <i id="solutionFavIcon" class="fa-regular fa-star text-xs"></i>
@@ -1319,115 +1328,124 @@
         </div>
 
         <!-- Printable Container for PDF Export -->
-        <div id="solutionPrintContainer" class="space-y-3.5 flex-1">
+        <div id="solutionPrintContainer" class="space-y-3.5 flex-1 w-full max-w-full box-border min-w-0 overflow-x-hidden">
 
           <!-- Detected Question Type, Formula Category & Extracted Parameters Summary -->
-          <div id="solutionClassificationBanner" class="hidden px-3.5 py-2.5 rounded-2xl bg-sage-green/10 dark:bg-sage-green/15 border border-sage-green/25">
-            <div class="flex items-center justify-between gap-2 text-xs">
-              <div class="font-bold text-sage-green truncate" id="solutionDetectedCategory">Algebra · Equation</div>
+          <div id="solutionClassificationBanner" class="hidden w-full max-w-full box-border min-w-0 overflow-x-hidden px-3.5 py-2.5 rounded-2xl bg-sage-green/10 dark:bg-sage-green/15 border border-sage-green/25">
+            <div class="flex items-center justify-between gap-2 text-xs w-full max-w-full min-w-0">
+              <div class="font-bold text-sage-green truncate min-w-0 flex-1" id="solutionDetectedCategory">Algebra · Equation</div>
               <button type="button" onclick="UI.editCurrentSolution()" class="text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:text-sage-green underline shrink-0 cursor-pointer">
                 Edit Input
               </button>
             </div>
-            <div id="solutionExtractedParams" class="text-xs text-gray-700 dark:text-gray-300 font-mono mt-0.5 tabular-nums break-words"></div>
+            <div id="solutionExtractedParams" class="text-xs text-gray-700 dark:text-gray-300 font-mono mt-0.5 tabular-nums break-words w-full max-w-full"></div>
           </div>
           
           <!-- Header Query (Input Problem) -->
-          <div class="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-2xl border border-gray-100 dark:border-gray-700/60">
+          <div class="w-full max-w-full box-border min-w-0 overflow-x-hidden bg-gray-50 dark:bg-gray-800/60 p-3 sm:p-3.5 rounded-2xl border border-gray-100 dark:border-gray-700/60">
             <div class="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Problem / Target</div>
-            <div id="solutionQuery" class="text-base font-bold text-gray-800 dark:text-gray-100 font-serif overflow-x-auto no-scrollbar py-0.5"></div>
+            <div id="solutionQuery" class="text-base font-bold text-gray-800 dark:text-gray-100 font-serif overflow-x-auto no-scrollbar py-0.5 w-full max-w-full"></div>
           </div>
 
           <!-- Multi-Method Solution Switcher (When problem has multiple solving approaches) -->
-          <div id="solutionMethodsBar" class="hidden bg-sage-green/10 dark:bg-sage-green/20 p-2.5 rounded-2xl border border-sage-green/30">
-            <div class="flex items-center justify-between mb-1.5 px-0.5">
-              <span class="text-[10px] font-bold text-sage-green uppercase tracking-wider flex items-center gap-1">
+          <div id="solutionMethodsBar" class="hidden w-full max-w-full box-border min-w-0 overflow-x-hidden bg-sage-green/10 dark:bg-sage-green/20 p-2.5 sm:p-3 rounded-2xl border border-sage-green/30">
+            <div class="flex items-center justify-between mb-1.5 px-0.5 w-full max-w-full min-w-0">
+              <span class="text-[10px] font-bold text-sage-green uppercase tracking-wider flex items-center gap-1 shrink-0">
                 <i class="fa-solid fa-code-fork text-[11px]"></i> All Available Solution Methods
               </span>
-              <span id="solutionMethodCount" class="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-sage-green text-white font-bold"></span>
+              <span id="solutionMethodCount" class="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-sage-green text-white font-bold shrink-0"></span>
             </div>
-            <div id="solutionMethodPills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
+            <div id="solutionMethodPills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 w-full max-w-full min-w-0"></div>
           </div>
 
           <!-- Section 1: Formula Statement -->
-          <div id="secFormulaStatement" class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <div id="secFormulaStatement" class="w-full max-w-full box-border min-w-0 overflow-x-hidden p-3 sm:p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
             <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center">1</span>
+              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center shrink-0">1</span>
               <span class="text-[11px] font-bold text-sage-green uppercase tracking-wide">Formula Statement</span>
             </div>
-            <div id="stepFormulaName" class="text-xs font-bold text-gray-800 dark:text-gray-200 mb-1"></div>
-            <div id="stepFormulaLatex" class="text-xs font-serif text-gray-900 dark:text-gray-100 overflow-x-auto no-scrollbar py-1"></div>
+            <div id="stepFormulaName" class="text-xs font-bold text-gray-800 dark:text-gray-200 mb-1 w-full max-w-full break-words"></div>
+            <div id="stepFormulaLatex" class="text-xs font-serif text-gray-900 dark:text-gray-100 overflow-x-auto no-scrollbar py-1 w-full max-w-full"></div>
           </div>
 
           <!-- Section 2: Given Values -->
-          <div id="secGivenValues" class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700">
+          <div id="secGivenValues" class="w-full max-w-full box-border min-w-0 overflow-x-hidden p-3 sm:p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700">
             <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center">2</span>
+              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center shrink-0">2</span>
               <span class="text-[11px] font-bold text-sage-green uppercase tracking-wide">Given Values</span>
             </div>
-            <div id="stepGivenValues" class="text-xs font-serif text-gray-800 dark:text-gray-200 overflow-x-auto no-scrollbar py-1"></div>
+            <div id="stepGivenValues" class="text-xs font-serif text-gray-800 dark:text-gray-200 overflow-x-auto no-scrollbar py-1 w-full max-w-full"></div>
           </div>
 
           <!-- Section 3: Substitution Step -->
-          <div id="secSubstitution" class="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700">
+          <div id="secSubstitution" class="w-full max-w-full box-border min-w-0 overflow-x-hidden p-3 sm:p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700">
             <div class="flex items-center gap-1.5 mb-1">
-              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center">3</span>
+              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center shrink-0">3</span>
               <span class="text-[11px] font-bold text-sage-green uppercase tracking-wide">Substitution Step</span>
             </div>
-            <div id="stepSubstitution" class="text-xs font-serif text-gray-800 dark:text-gray-200 overflow-x-auto no-scrollbar py-1"></div>
+            <div id="stepSubstitution" class="text-xs font-serif text-gray-800 dark:text-gray-200 overflow-x-auto no-scrollbar py-1 w-full max-w-full"></div>
           </div>
 
           <!-- Section 4: Intermediate Simplifications -->
-          <div id="secIntermediateSteps">
+          <div id="secIntermediateSteps" class="w-full max-w-full box-border min-w-0 overflow-x-hidden">
             <div class="flex items-center gap-1.5 mb-2 px-1">
-              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center">4</span>
+              <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center shrink-0">4</span>
               <span class="text-[11px] font-bold text-sage-green uppercase tracking-wide">Intermediate Simplifications</span>
             </div>
-            <div id="solutionSteps" class="space-y-2">
+            <div id="solutionSteps" class="space-y-2 w-full max-w-full box-border min-w-0">
               <!-- Rendered calculation steps -->
             </div>
           </div>
 
           <!-- Section 5: Final Result -->
-          <div id="secFinalResult" class="p-4 rounded-2xl bg-sage-green/10 dark:bg-sage-green/20 border-2 border-sage-green/30">
-            <div class="flex items-center justify-between mb-1">
-              <div class="flex items-center gap-1.5">
-                <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center">5</span>
-                <span class="text-[11px] font-bold text-sage-green uppercase tracking-wide">Final Result</span>
+          <div id="secFinalResult" class="w-full max-w-full box-border min-w-0 overflow-x-hidden p-3.5 sm:p-4 rounded-2xl bg-sage-green/10 dark:bg-sage-green/20 border-2 border-sage-green/30">
+            <div class="flex items-center justify-between mb-1 w-full max-w-full">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center shrink-0">5</span>
+                <span class="text-[11px] font-bold text-sage-green uppercase tracking-wide shrink-0">Final Result</span>
               </div>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage-green text-white">Ans</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage-green text-white shrink-0">Ans</span>
             </div>
-            <div id="solutionAnswer" class="text-xl font-extrabold text-gray-900 dark:text-white overflow-x-auto no-scrollbar py-1"></div>
+            <div id="solutionAnswer" class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white overflow-x-auto no-scrollbar py-1 w-full max-w-full break-words"></div>
           </div>
 
           <!-- Section 6: Interactive Graph Section -->
-          <div id="secGraphSection" class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700">
-            <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
-              <div class="flex items-center gap-1.5 min-w-0">
+          <div id="secGraphSection" class="w-full max-w-full box-border min-w-0 overflow-x-hidden p-3 sm:p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700">
+            <!-- Header Title Row -->
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2 w-full max-w-full min-w-0">
+              <div class="flex items-center gap-1.5 min-w-0 shrink">
                 <span class="w-4 h-4 rounded-full bg-sage-green text-white text-[9px] font-extrabold flex items-center justify-center shrink-0">6</span>
                 <span class="text-[11px] font-bold text-sage-green uppercase tracking-wide shrink-0">Interactive Graph</span>
-                <span id="graphFormulaBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-sage-green/10 dark:bg-sage-green/20 text-sage-green truncate max-w-[140px]" title="Plotted Function">f(x)</span>
-              </div>
-              <div class="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                <button type="button" id="graphGridToggle" onclick="UI.toggleGraphGrid()" class="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-sage-green/15 text-sage-green dark:bg-sage-green/25 hover:opacity-80 transition flex items-center gap-1 cursor-pointer" title="Toggle Grid Lines">
-                  <span>🌐</span><span id="graphGridStatusText">Grid: ON</span>
-                </button>
-                <button type="button" id="graphSnapToggle" onclick="UI.toggleGraphSnap()" class="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-sage-green/15 text-sage-green dark:bg-sage-green/25 hover:opacity-80 transition flex items-center gap-1 cursor-pointer" title="Toggle Snap to Grid">
-                  <span>🧲</span><span id="graphSnapStatusText">Snap: ON</span>
-                </button>
-                <button type="button" id="graphRootsToggle" onclick="UI.toggleGraphRoots()" class="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition cursor-pointer" title="Find & Highlight Real Roots / X-Intercepts">
-                  <span>🎯 Roots</span>
-                </button>
-                <button type="button" id="graphExtremaToggle" onclick="UI.toggleGraphExtrema()" class="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition cursor-pointer" title="Find & Highlight Extrema / Vertex">
-                  <span>📈 Extrema</span>
-                </button>
-                <button type="button" onclick="UI.zoomGraph(1.2)" class="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs" title="Zoom In">+</button>
-                <button type="button" onclick="UI.zoomGraph(0.8)" class="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs" title="Zoom Out">−</button>
-                <button type="button" onclick="UI.resetGraph()" class="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs" title="Reset View">⟲</button>
+                <span id="graphFormulaBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-sage-green/10 dark:bg-sage-green/20 text-sage-green truncate max-w-[110px] sm:max-w-[150px]" title="Plotted Function">f(x)</span>
               </div>
             </div>
-            <div class="w-full h-48 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden flex items-center justify-center select-none touch-none">
-              <canvas id="solutionCanvasGraph" width="480" height="220" class="w-full h-full cursor-crosshair touch-none select-none block"></canvas>
+
+            <!-- Flexible Interactive Graph Controls Bar (Wrapping flex layout with gap-2) -->
+            <div class="flex flex-wrap items-center gap-1.5 w-full max-w-full mb-2.5 min-w-0">
+              <button type="button" id="graphGridToggle" onclick="UI.toggleGraphGrid()" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-sage-green/15 text-sage-green dark:bg-sage-green/25 hover:opacity-80 transition flex items-center gap-1 cursor-pointer shrink-0" title="Toggle Grid Lines">
+                <span>🌐</span><span id="graphGridStatusText">Grid: ON</span>
+              </button>
+              <button type="button" id="graphSnapToggle" onclick="UI.toggleGraphSnap()" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-sage-green/15 text-sage-green dark:bg-sage-green/25 hover:opacity-80 transition flex items-center gap-1 cursor-pointer shrink-0" title="Toggle Snap to Grid">
+                <span>🧲</span><span id="graphSnapStatusText">Snap: ON</span>
+              </button>
+              <button type="button" id="graphRootsToggle" onclick="UI.toggleGraphRoots()" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition cursor-pointer shrink-0" title="Find & Highlight Real Roots / X-Intercepts">
+                <span>🎯 Roots</span>
+              </button>
+              <button type="button" id="graphExtremaToggle" onclick="UI.toggleGraphExtrema()" class="px-2 py-1 text-[10px] font-bold rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition cursor-pointer shrink-0" title="Find & Highlight Extrema / Vertex">
+                <span>📈 Extrema</span>
+              </button>
+
+              <!-- Zoom & Reset Actions -->
+              <div class="flex items-center gap-1 ml-auto shrink-0">
+                <button type="button" onclick="UI.zoomGraph(1.2)" class="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs active:scale-95 transition" title="Zoom In">+</button>
+                <button type="button" onclick="UI.zoomGraph(0.8)" class="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs active:scale-95 transition" title="Zoom Out">−</button>
+                <button type="button" onclick="UI.resetGraph()" class="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center cursor-pointer shadow-xs active:scale-95 transition" title="Reset View">⟲</button>
+              </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="w-full max-w-full h-48 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 relative overflow-hidden flex items-center justify-center select-none touch-none min-w-0 box-border">
+              <canvas id="solutionCanvasGraph" width="480" height="220" class="w-full h-full cursor-crosshair touch-none select-none block max-w-full"></canvas>
               <!-- Semi-transparent floating tooltip box centered above snap-point with theme-adaptive high-contrast text -->
               <div id="graphTooltip" class="absolute pointer-events-none hidden z-20 transition-all duration-75 select-none text-[10px] font-mono rounded-xl px-2.5 py-1.5 shadow-xl">
                 (x: 0, y: 0)
@@ -1441,15 +1459,15 @@
         </div>
 
         <!-- Action Buttons Footer -->
-        <div class="flex gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-          <button onclick="UI.exportSolutionAsPDF()" class="py-2.5 px-3.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300 font-bold rounded-2xl text-xs hover:bg-red-100 dark:hover:bg-red-900/40 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm" title="Export step-by-step problem-solving history as a PDF">
+        <div class="w-full max-w-full box-border min-w-0 flex flex-wrap sm:flex-nowrap gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+          <button onclick="UI.exportSolutionAsPDF()" class="py-2.5 px-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300 font-bold rounded-2xl text-xs hover:bg-red-100 dark:hover:bg-red-900/40 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0" title="Export step-by-step problem-solving history as a PDF">
             <i class="fa-solid fa-file-pdf"></i>
             <span>Export PDF</span>
           </button>
-          <button onclick="UI.editCurrentSolution()" class="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-2xl text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition cursor-pointer">
+          <button onclick="UI.editCurrentSolution()" class="flex-1 min-w-[100px] py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold rounded-2xl text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition cursor-pointer text-center">
             Edit & Re-solve
           </button>
-          <button onclick="closeModal('solutionModal')" class="flex-1 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-2xl text-xs hover:opacity-90 transition cursor-pointer">
+          <button onclick="closeModal('solutionModal')" class="flex-1 min-w-[80px] py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-2xl text-xs hover:opacity-90 transition cursor-pointer text-center">
             Done
           </button>
         </div>
